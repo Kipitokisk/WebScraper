@@ -8,6 +8,10 @@ import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.*;
 
@@ -20,6 +24,7 @@ public class Scraper {
     private WebDriverWait wait;
     private JavascriptExecutor js;
     private final WebDriverFactory factory;
+    private final DatabaseManager dbManager;
 
     public Scraper(WebDriverFactory factory, String base_url, String car_brand, String car_model, String car_generation) {
         this.factory = factory;
@@ -27,6 +32,7 @@ public class Scraper {
         this.car_brand = car_brand;
         this.car_model = car_model;
         this.car_generation = car_generation;
+        this.dbManager = new DatabaseManager();
     }
 
     public void scrape() throws InterruptedException {
@@ -38,7 +44,7 @@ public class Scraper {
             navigateToSearchPage();
             selectCarModelAndGeneration();
             processAllPages(finalProducts);
-            printResults(finalProducts);
+            saveResults(finalProducts);
         } finally {
             driver.quit();
         }
@@ -226,4 +232,52 @@ public class Scraper {
         System.out.println("Min price: " + minEntry.getValue().get(0) + " (Link: " + minEntry.getKey() + ")");
         System.out.printf("Average price: %.2f%n", avgPrice);
     }
+
+    private void saveResults(Map<String, List<Integer>> finalProducts) {
+        if (finalProducts.isEmpty()) {
+            System.out.println("No products found.");
+            return;
+        }
+
+        try {
+            dbManager.saveCars(finalProducts);
+            printResults(finalProducts);
+        } catch (SQLException e) {
+            System.err.println("Failed to save results to database: " + e.getMessage());
+            throw new RuntimeException("Database error", e);
+        }
+    }
+
+    private static class DatabaseManager {
+        private static final String DB_URL = "jdbc:postgresql://localhost:5432/scraper_db";
+        private static final String DB_USER = "postgres";
+        private static final String DB_PASSWORD = "pass";
+
+        public void saveCars(Map<String, List<Integer>> finalProducts) throws SQLException {
+            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                String sql = "INSERT INTO cars (link, price, mileage) VALUES (?, ?, ?) ON CONFLICT (link) DO NOTHING";
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    for (Map.Entry<String, List<Integer>> entry : finalProducts.entrySet()) {
+                        String link = entry.getKey();
+                        List<Integer> values = entry.getValue();
+                        if (values == null || values.size() < 2) continue;
+
+                        if (link.contains("?clickToken")) {
+                            int queryIndex = link.indexOf('?');
+                            if (queryIndex != -1) {
+                                link = link.substring(0, queryIndex);
+                            }
+                        }
+
+                        stmt.setString(1, link);
+                        stmt.setInt(2, values.get(0)); // price
+                        stmt.setInt(3, values.get(1)); // mileage
+                        stmt.addBatch();
+                    }
+                    stmt.executeBatch();
+                }
+            }
+        }
+    }
 }
+
