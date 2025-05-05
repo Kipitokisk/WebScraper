@@ -186,7 +186,7 @@ public class Scraper {
         } catch (NumberFormatException e) {
             return;
         }
-        if (price < 1000 || price > 50000) {
+        if (price < 100 || price > 70000) {
             return;
         }
 
@@ -196,7 +196,7 @@ public class Scraper {
         } catch (NumberFormatException e) {
             return;
         }
-        if (km < 1000) {
+        if (km < 100 || km == 11111 || km == 111111 || km == 77777 || km == 777777 || km == 12345 || km == 123456) {
             return;
         }
 
