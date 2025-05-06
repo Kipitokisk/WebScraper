@@ -281,23 +281,23 @@ public class Scraper {
         }
 
         CarDetails maxEntry = finalProducts.stream()
-                .filter(c -> c.eurPrice != null && c.adType.equals("Vând"))
-                .max(Comparator.comparingInt(c -> c.eurPrice))
+                .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
+                .max(Comparator.comparingInt(c -> c.getEurPrice()))
                 .orElseThrow(() -> new RuntimeException("There is no max price"));
 
         CarDetails minEntry = finalProducts.stream()
-                .filter(c -> c.eurPrice != null && c.adType.equals("Vând"))
-                .min(Comparator.comparingInt(c -> c.eurPrice))
+                .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
+                .min(Comparator.comparingInt(c -> c.getEurPrice()))
                 .orElseThrow(() -> new RuntimeException("There is no min price"));
 
         double avgPrice = finalProducts.stream()
-                .filter(c -> c.mileage != null && c.eurPrice != null && c.mileage > 200000 && c.mileage < 400000 && c.adType.equals("Vând"))
-                .mapToInt(c -> c.eurPrice)
+                .filter(c -> c.getMileage() != null && c.getEurPrice() != null && c.getMileage() > 200000 && c.getMileage() < 400000 && c.getAdType().equals("Vând"))
+                .mapToInt(c -> c.getEurPrice())
                 .average()
                 .orElseThrow(() -> new RuntimeException("Cannot compute average - list is empty"));
 
-        System.out.println("Max price: " + maxEntry.eurPrice + " (Link: " + maxEntry.link + ")");
-        System.out.println("Min price: " + minEntry.eurPrice + " (Link: " + minEntry.link + ")");
+        System.out.println("Max price: " + maxEntry.getEurPrice() + " (Link: " + maxEntry.getLink() + ")");
+        System.out.println("Min price: " + minEntry.getEurPrice() + " (Link: " + minEntry.getLink() + ")");
         System.out.printf("Average price: %.2f%n", avgPrice);
     }
 
