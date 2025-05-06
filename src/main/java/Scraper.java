@@ -8,6 +8,7 @@ import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.*;
@@ -36,7 +37,7 @@ public class Scraper {
         driver = setupDriver();
         wait = new WebDriverWait(driver, Duration.ofSeconds(4));
         js = (JavascriptExecutor) driver;
-        Map<String, List<Integer>> finalProducts = new HashMap<>();
+        List<CarDetails> finalProducts = new ArrayList<>();
         try {
             navigateToSearchPage();
             selectCarModelAndGeneration();
@@ -84,7 +85,7 @@ public class Scraper {
         }
     }
 
-    private void processAllPages(Map<String, List<Integer>> finalProducts) throws InterruptedException {
+    private void processAllPages(List<CarDetails> finalProducts) throws InterruptedException {
         while (true) {
             processCurrentPage(finalProducts);
 
@@ -104,7 +105,7 @@ public class Scraper {
         }
     }
 
-    private void processCurrentPage(Map<String, List<Integer>> finalProducts) {
+    private void processCurrentPage(List<CarDetails> finalProducts) {
         int maxRetries = 3;
         int attempts = 0;
 
@@ -129,108 +130,178 @@ public class Scraper {
         }
     }
 
-    private void extractCarDetails(Element carElement, Map<String, List<Integer>> finalProducts) throws InterruptedException {
+    private void extractCarDetails(Element carElement, List<CarDetails> finalProducts) throws IOException {
         Element carLinkElement = carElement.selectFirst("a.AdPhoto_info__link__OwhY6");
-        Element carPriceElement = carElement.selectFirst("span.AdPrice_price__2L3eA");
-        if (carLinkElement == null || carPriceElement == null) return;
+        if (carLinkElement == null) return;
 
         String carLink = carLinkElement.attr("href");
         String carName = carLinkElement.text();
-        String carPrice = carPriceElement.text();
 
-        String carKm = extractMileage(driver, wait, js, carElement, carLink);
-        if (carKm == null || carKm.isEmpty()) return;
-
-        filterResult(carLink, carName, carPrice, carKm, finalProducts);
+        CarDetails carDetails = extractDetailedCarInfo(carLink, carName);
+        if (carDetails != null) {
+            finalProducts.add(carDetails);
+        }
     }
 
-    private String extractMileage(WebDriver driver, WebDriverWait wait, JavascriptExecutor js,  Element carElement, String carLink) throws InterruptedException {
-        Element mileageElement = carElement.selectFirst("span.AdPrice_info__LYNmc");
-        if (mileageElement != null) {
-            return mileageElement.text();
-        }
+    private CarDetails extractDetailedCarInfo(String carLink, String carName) throws IOException {
+        try {
+            Document doc = Jsoup.connect(base_url + carLink).get();
+            Elements items = doc.select("div.styles_aside__0m8KW");
 
-        js.executeScript("window.open(arguments[0], '_blank');", base_url + carLink);
-        String originalWindow = driver.getWindowHandle();
-
-        for (String windowHandle : driver.getWindowHandles()) {
-            if (!windowHandle.equals(originalWindow)) {
-                driver.switchTo().window(windowHandle);
-                break;
+            String updateDate = null;
+            Element updateDateElement = items.selectFirst("p.styles_date__voWnk");
+            if (updateDateElement != null) {
+                String text = updateDateElement.text();
+                updateDate = text.substring(text.indexOf(":") + 1).trim();
             }
-        }
 
-        try {
-            wait.until(ExpectedConditions.presenceOfElementLocated(
-                    By.cssSelector("span.styles_group__key__uRhnQ")
-            ));
-            return (String) js.executeScript(
-                    "return Array.from(document.querySelectorAll('span.styles_group__key__uRhnQ')).find(el => el.textContent.includes('Rulaj'))?.nextElementSibling?.textContent || '';"
-            );
-        } catch (TimeoutException e) {
+            String adType = null;
+            Element adTypeElement = items.selectFirst("p.styles_type___J9Dy");
+            if (adTypeElement != null) {
+                String text = adTypeElement.text();
+                adType = text.substring(text.indexOf(":") + 1).trim();
+            }
+
+            Integer eurPrice = null;
+            Element eurPriceElement = items.selectFirst("span.styles_sidebar__main__DaXQC");
+            if (eurPriceElement != null) {
+                String eurPriceString = eurPriceElement.text();
+                try {
+                    eurPrice = Integer.parseInt(eurPriceString.replaceAll("\\D", ""));
+                } catch (NumberFormatException e) {
+                    eurPrice = null;
+                }
+            }
+
+            String region = null;
+            Element regionElement = items.selectFirst("span.styles_address__text__duvKg");
+            if (regionElement != null) {
+                region = regionElement.text();
+            }
+
+            String author = null;
+            Element authorElement = doc.selectFirst("a.styles_owner__login__VKE71");
+            if (authorElement != null) {
+                author = authorElement.text().trim();
+            }
+
+            Map<String, String> particularities = new HashMap<>();
+            Elements particularityItems = doc.select("div.styles_features__right__Sn6fV > div.styles_group__aota8 > ul > li");
+            for (Element item : particularityItems) {
+                Element keyElement = item.selectFirst("span.styles_group__key__uRhnQ");
+                Element valueElement = item.selectFirst("span.styles_group__value__XN7OI");
+                if (keyElement != null && valueElement != null) {
+                    particularities.put(keyElement.text(), valueElement.text());
+                }
+            }
+
+            Integer yearOfFabrication = null;
+            String yearText = particularities.get("An de fabricație");
+            if (yearText != null) {
+                try {
+                    yearOfFabrication = Integer.parseInt(yearText.replaceAll("\\D", ""));
+                } catch (NumberFormatException e) {
+                }
+            }
+
+            String wheelSide = particularities.get("Volan");
+            String body = particularities.get("Tip caroserie");
+            String color = particularities.get("Culoare");
+
+            Integer nrOfSeats = null;
+            String seatsText = particularities.get("Număr de locuri");
+            if (seatsText != null) {
+                try {
+                    nrOfSeats = Integer.parseInt(seatsText.replaceAll("\\D", ""));
+                } catch (NumberFormatException e) {
+                }
+            }
+
+            Integer nrOfDoors = null;
+            String doorsText = particularities.get("Număr uși");
+            if (doorsText != null) {
+                try {
+                    nrOfDoors = Integer.parseInt(doorsText.replaceAll("\\D", ""));
+                } catch (NumberFormatException e) {
+                }
+            }
+
+            Integer engineCapacity = null;
+            String capacityText = particularities.get("Capacitate cilindrică");
+            if (capacityText != null) {
+                try {
+                    engineCapacity = Integer.parseInt(capacityText.replaceAll("\\D", ""));
+                } catch (NumberFormatException e) {
+                }
+            }
+
+            Integer horsepower = null;
+            String hpText = particularities.get("Putere");
+            if (hpText != null) {
+                try {
+                    horsepower = Integer.parseInt(hpText.replaceAll("\\D", ""));
+                } catch (NumberFormatException e) {
+                }
+            }
+
+            String petrolType = particularities.get("Tip combustibil");
+            String gearsType = particularities.get("Cutie de viteze");
+            String tractionType = particularities.get("Tip tracțiune");
+
+            Integer mileage = null;
+            String mileageText = particularities.get("Rulaj");
+            if (mileageText != null) {
+                try {
+                    mileage = Integer.parseInt(mileageText.replaceAll("\\D", ""));
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }
+
+            if (!carName.contains(car_brand + " " + car_model) ||
+                    (eurPrice != null && (eurPrice < 100 || eurPrice > 70000)) ||
+                    (mileage != null && (mileage < 100 || mileage == 111 ||mileage == 1111 || mileage == 11111 || mileage == 111111 ||
+                            mileage == 77777 || mileage == 777777 || mileage == 12345 || mileage == 123456))) {
+                return null;
+            }
+
+            return new CarDetails(base_url + carLink, car_brand + car_model + car_generation, eurPrice, mileage,
+                    updateDate, adType, region, author, yearOfFabrication, wheelSide, nrOfSeats, body,
+                    nrOfDoors, engineCapacity, horsepower, petrolType, gearsType, tractionType, color);
+
+        } catch (IOException e) {
+            System.err.println("Error fetching car details page: " + (base_url + carLink) + " - " + e.getMessage());
             return null;
-        } finally {
-            driver.close();
-            driver.switchTo().window(originalWindow);
         }
     }
 
-    private void filterResult(String carLink, String carName, String carPrice, String carKm, Map<String, List<Integer>> finalProducts) {
-        if (!carName.contains(car_brand + " " + car_model) || !carPrice.contains("€")) {
-            return;
-        }
-
-        int price;
-        try {
-            price = Integer.parseInt(carPrice.replaceAll("\\D", ""));
-        } catch (NumberFormatException e) {
-            return;
-        }
-        if (price < 100 || price > 70000) {
-            return;
-        }
-
-        int km;
-        try {
-            km = Integer.parseInt(carKm.replaceAll("\\D", ""));
-        } catch (NumberFormatException e) {
-            return;
-        }
-        if (km < 100 || km == 11111 || km == 111111 || km == 77777 || km == 777777 || km == 12345 || km == 123456) {
-            return;
-        }
-
-        String finalLink = base_url + carLink;
-        finalProducts.put(finalLink, Arrays.asList(price, km));
-    }
-
-    private void printResults(Map<String, List<Integer>> finalProducts) {
+    private void printResults(List<CarDetails> finalProducts) {
         if (finalProducts == null || finalProducts.isEmpty()) {
-            throw new RuntimeException("Product map is empty or null");
+            throw new RuntimeException("Product list is empty or null");
         }
 
-        Map.Entry<String, List<Integer>> maxEntry = finalProducts.entrySet().stream()
-                .filter(e -> e.getValue() != null && !e.getValue().isEmpty())
-                .max(Comparator.comparingInt(e -> e.getValue().get(0)))
+        CarDetails maxEntry = finalProducts.stream()
+                .filter(c -> c.eurPrice != null && c.adType.equals("Vând"))
+                .max(Comparator.comparingInt(c -> c.eurPrice))
                 .orElseThrow(() -> new RuntimeException("There is no max price"));
 
-        Map.Entry<String, List<Integer>> minEntry = finalProducts.entrySet().stream()
-                .filter(e -> e.getValue() != null && !e.getValue().isEmpty())
-                .min(Comparator.comparingInt(e -> e.getValue().get(0)))
+        CarDetails minEntry = finalProducts.stream()
+                .filter(c -> c.eurPrice != null && c.adType.equals("Vând"))
+                .min(Comparator.comparingInt(c -> c.eurPrice))
                 .orElseThrow(() -> new RuntimeException("There is no min price"));
 
-        double avgPrice = finalProducts.values().stream()
-                .filter(list -> list != null && !list.isEmpty() && list.get(1) > 200000 && list.get(1) < 400000)
-                .mapToInt(list -> list.get(0))
+        double avgPrice = finalProducts.stream()
+                .filter(c -> c.mileage != null && c.eurPrice != null && c.mileage > 200000 && c.mileage < 400000 && c.adType.equals("Vând"))
+                .mapToInt(c -> c.eurPrice)
                 .average()
                 .orElseThrow(() -> new RuntimeException("Cannot compute average - list is empty"));
 
-        System.out.println("Max price: " + maxEntry.getValue().get(0) + " (Link: " + maxEntry.getKey() + ")");
-        System.out.println("Min price: " + minEntry.getValue().get(0) + " (Link: " + minEntry.getKey() + ")");
+        System.out.println("Max price: " + maxEntry.eurPrice + " (Link: " + maxEntry.link + ")");
+        System.out.println("Min price: " + minEntry.eurPrice + " (Link: " + minEntry.link + ")");
         System.out.printf("Average price: %.2f%n", avgPrice);
     }
 
-    private void saveResults(Map<String, List<Integer>> finalProducts) {
+    private void saveResults(List<CarDetails> finalProducts) {
         if (finalProducts.isEmpty()) {
             System.out.println("No products found.");
             return;
@@ -245,4 +316,3 @@ public class Scraper {
         }
     }
 }
-
