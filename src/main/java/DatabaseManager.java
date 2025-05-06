@@ -30,7 +30,7 @@ public class DatabaseManager {
                  PreparedStatement carsStmt = conn.prepareStatement(carsSql)) {
 
                 for (CarDetails car : finalProducts) {
-                    String cleanLink = car.link;
+                    String cleanLink = car.getLink();
                     if (cleanLink.contains("?clickToken")) {
                         int queryIndex = cleanLink.indexOf('?');
                         if (queryIndex != -1) {
@@ -38,34 +38,34 @@ public class DatabaseManager {
                         }
                     }
 
-                    setNullableString(particularitiesStmt, 1, car.author);
-                    setNullableInt(particularitiesStmt, 2, car.yearOfFabrication);
-                    setNullableString(particularitiesStmt, 3, car.wheelSide);
-                    setNullableInt(particularitiesStmt, 4, car.nrOfSeats);
-                    setNullableString(particularitiesStmt, 5, car.body);
-                    setNullableInt(particularitiesStmt, 6, car.nrOfDoors);
-                    setNullableInt(particularitiesStmt, 7, car.engineCapacity);
-                    setNullableInt(particularitiesStmt, 8, car.horsepower);
-                    setNullableString(particularitiesStmt, 9, car.petrolType);
-                    setNullableString(particularitiesStmt, 10, car.gearsType);
-                    setNullableString(particularitiesStmt, 11, car.tractionType);
-                    setNullableString(particularitiesStmt, 12, car.color);
+                    setNullableString(particularitiesStmt, 1, car.getAuthor());
+                    setNullableInt(particularitiesStmt, 2, car.getYearOfFabrication());
+                    setNullableString(particularitiesStmt, 3, car.getWheelSide());
+                    setNullableInt(particularitiesStmt, 4, car.getNrOfSeats());
+                    setNullableString(particularitiesStmt, 5, car.getBody());
+                    setNullableInt(particularitiesStmt, 6, car.getNrOfDoors());
+                    setNullableInt(particularitiesStmt, 7, car.getEngineCapacity());
+                    setNullableInt(particularitiesStmt, 8, car.getHorsepower());
+                    setNullableString(particularitiesStmt, 9, car.getPetrolType());
+                    setNullableString(particularitiesStmt, 10, car.getGearsType());
+                    setNullableString(particularitiesStmt, 11, car.getTractionType());
+                    setNullableString(particularitiesStmt, 12, car.getColor());
 
                     try {
                         ResultSet rs = particularitiesStmt.executeQuery();
                         if (rs.next()) {
                             long particularitiesId = rs.getLong("id");
                             carsStmt.setString(1, cleanLink);
-                            setNullableString(carsStmt, 2, car.region);
-                            setNullableInt(carsStmt, 3, car.mileage);
-                            setNullableInt(carsStmt, 4, car.eurPrice);
-                            Timestamp timestamp = parseRomanianDate(car.updateDate);
+                            setNullableString(carsStmt, 2, car.getRegion());
+                            setNullableInt(carsStmt, 3, car.getMileage());
+                            setNullableInt(carsStmt, 4, car.getEurPrice());
+                            Timestamp timestamp = parseRomanianDate(car.getUpdateDate());
                             if (timestamp == null) {
                                 carsStmt.setNull(5, java.sql.Types.TIMESTAMP);
                             } else {
                                 carsStmt.setTimestamp(5, timestamp);
                             }
-                            setNullableString(carsStmt, 6, car.adType);
+                            setNullableString(carsStmt, 6, car.getAdType());
                             carsStmt.setLong(7, particularitiesId);
 
                             carsStmt.addBatch();
