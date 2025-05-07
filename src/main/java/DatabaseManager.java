@@ -16,10 +16,10 @@ public class DatabaseManager {
 
             String insertParticularitiesSql = """
             INSERT INTO particularities (
-                wheel_side_id, nr_of_seats_id, body_id, nr_of_doors_id,
+                author, year_of_fabrication, wheel_side_id, nr_of_seats_id, body_id, nr_of_doors_id,
                 engine_capacity_id, horsepower_id, petrol_type_id,
                 gears_type_id, traction_type_id, color_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
         """;
 
             String insertCarSql = """
@@ -46,16 +46,18 @@ public class DatabaseManager {
                     Integer tractionTypeId = getOrInsertLookup(conn, "traction_type", car.getTractionType());
                     Integer colorId = getOrInsertLookup(conn, "color", car.getColor());
 
-                    setNullableInt(particularitiesStmt, 1, wheelSideId);
-                    setNullableInt(particularitiesStmt, 2, nrOfSeatsId);
-                    setNullableInt(particularitiesStmt, 3, bodyId);
-                    setNullableInt(particularitiesStmt, 4, nrOfDoorsId);
-                    setNullableInt(particularitiesStmt, 5, engineCapacityId);
-                    setNullableInt(particularitiesStmt, 6, horsepowerId);
-                    setNullableInt(particularitiesStmt, 7, petrolTypeId);
-                    setNullableInt(particularitiesStmt, 8, gearsTypeId);
-                    setNullableInt(particularitiesStmt, 9, tractionTypeId);
-                    setNullableInt(particularitiesStmt, 10, colorId);
+                    setNullableString(particularitiesStmt, 1, car.getAuthor());
+                    setNullableInt(particularitiesStmt, 2, car.getYearOfFabrication());
+                    setNullableInt(particularitiesStmt, 3, wheelSideId);
+                    setNullableInt(particularitiesStmt, 4, nrOfSeatsId);
+                    setNullableInt(particularitiesStmt, 5, bodyId);
+                    setNullableInt(particularitiesStmt, 6, nrOfDoorsId);
+                    setNullableInt(particularitiesStmt, 7, engineCapacityId);
+                    setNullableInt(particularitiesStmt, 8, horsepowerId);
+                    setNullableInt(particularitiesStmt, 9, petrolTypeId);
+                    setNullableInt(particularitiesStmt, 10, gearsTypeId);
+                    setNullableInt(particularitiesStmt, 11, tractionTypeId);
+                    setNullableInt(particularitiesStmt, 12, colorId);
 
                     ResultSet rs = particularitiesStmt.executeQuery();
                     if (rs.next()) {
