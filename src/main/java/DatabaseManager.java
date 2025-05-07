@@ -4,9 +4,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
-
-import org.postgresql.util.PSQLException;
 
 public class DatabaseManager {
     private static final String DB_URL = "jdbc:postgresql://localhost:5432/scraper_db";
@@ -17,68 +14,70 @@ public class DatabaseManager {
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
             conn.setAutoCommit(false);
 
-            String particularitiesSql = "INSERT INTO particularities (" +
-                    "author, year_of_fabrication, wheel_side, nr_of_seats, body, nr_of_doors, " +
-                    "engine_capacity_cm3, horsepower, petrol_type, gears_type, traction_type, color) " +
-                    "VALUES (?, ?, ?::wheel_side_enum, ?, ?, ?, ?, ?, ?::petrol_type_enum, ?::gears_type_enum, ?::traction_type_enum, ?) RETURNING id";
+            String insertParticularitiesSql = """
+            INSERT INTO particularities (
+                wheel_side_id, nr_of_seats_id, body_id, nr_of_doors_id,
+                engine_capacity_id, horsepower_id, petrol_type_id,
+                gears_type_id, traction_type_id, color_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+        """;
 
-            String carsSql = "INSERT INTO cars (" +
-                    "link, region, mileage, price_eur, update_date, ad_type, particularities_id) " +
-                    "VALUES (?, ?, ?, ?, ?, ?::ad_type_enum, ?) ON CONFLICT (link) DO NOTHING";
+            String insertCarSql = """
+            INSERT INTO cars (
+                link, region, mileage, price_eur, update_date, ad_type_id, particularities_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
+        """;
 
-            try (PreparedStatement particularitiesStmt = conn.prepareStatement(particularitiesSql);
-                 PreparedStatement carsStmt = conn.prepareStatement(carsSql)) {
-
+            try (
+                    PreparedStatement particularitiesStmt = conn.prepareStatement(insertParticularitiesSql);
+                    PreparedStatement carsStmt = conn.prepareStatement(insertCarSql)
+            ) {
                 for (CarDetails car : finalProducts) {
-                    String cleanLink = car.getLink();
-                    if (cleanLink.contains("?clickToken")) {
-                        int queryIndex = cleanLink.indexOf('?');
-                        if (queryIndex != -1) {
-                            cleanLink = cleanLink.substring(0, queryIndex);
-                        }
-                    }
+                    String cleanLink = car.getLink().split("\\?")[0];
 
-                    setNullableString(particularitiesStmt, 1, car.getAuthor());
-                    setNullableInt(particularitiesStmt, 2, car.getYearOfFabrication());
-                    setNullableString(particularitiesStmt, 3, car.getWheelSide());
-                    setNullableInt(particularitiesStmt, 4, car.getNrOfSeats());
-                    setNullableString(particularitiesStmt, 5, car.getBody());
-                    setNullableInt(particularitiesStmt, 6, car.getNrOfDoors());
-                    setNullableInt(particularitiesStmt, 7, car.getEngineCapacity());
-                    setNullableInt(particularitiesStmt, 8, car.getHorsepower());
-                    setNullableString(particularitiesStmt, 9, car.getPetrolType());
-                    setNullableString(particularitiesStmt, 10, car.getGearsType());
-                    setNullableString(particularitiesStmt, 11, car.getTractionType());
-                    setNullableString(particularitiesStmt, 12, car.getColor());
+                    Integer wheelSideId = getOrInsertLookup(conn, "wheel_side", car.getWheelSide());
+                    Integer nrOfSeatsId = getOrInsertLookup(conn, "nr_of_seats", car.getNrOfSeats());
+                    Integer bodyId = getOrInsertLookup(conn, "body", car.getBody());
+                    Integer nrOfDoorsId = getOrInsertLookup(conn, "nr_of_doors", car.getNrOfDoors());
+                    Integer engineCapacityId = getOrInsertLookup(conn, "engine_capacity", car.getEngineCapacity());
+                    Integer horsepowerId = getOrInsertLookup(conn, "horsepower", car.getHorsepower());
+                    Integer petrolTypeId = getOrInsertLookup(conn, "petrol_type", car.getPetrolType());
+                    Integer gearsTypeId = getOrInsertLookup(conn, "gears_type", car.getGearsType());
+                    Integer tractionTypeId = getOrInsertLookup(conn, "traction_type", car.getTractionType());
+                    Integer colorId = getOrInsertLookup(conn, "color", car.getColor());
 
-                    try {
-                        ResultSet rs = particularitiesStmt.executeQuery();
-                        if (rs.next()) {
-                            long particularitiesId = rs.getLong("id");
-                            carsStmt.setString(1, cleanLink);
-                            setNullableString(carsStmt, 2, car.getRegion());
-                            setNullableInt(carsStmt, 3, car.getMileage());
-                            setNullableInt(carsStmt, 4, car.getEurPrice());
-                            Timestamp timestamp = parseRomanianDate(car.getUpdateDate());
-                            if (timestamp == null) {
-                                carsStmt.setNull(5, java.sql.Types.TIMESTAMP);
-                            } else {
-                                carsStmt.setTimestamp(5, timestamp);
-                            }
-                            setNullableString(carsStmt, 6, car.getAdType());
-                            carsStmt.setLong(7, particularitiesId);
+                    setNullableInt(particularitiesStmt, 1, wheelSideId);
+                    setNullableInt(particularitiesStmt, 2, nrOfSeatsId);
+                    setNullableInt(particularitiesStmt, 3, bodyId);
+                    setNullableInt(particularitiesStmt, 4, nrOfDoorsId);
+                    setNullableInt(particularitiesStmt, 5, engineCapacityId);
+                    setNullableInt(particularitiesStmt, 6, horsepowerId);
+                    setNullableInt(particularitiesStmt, 7, petrolTypeId);
+                    setNullableInt(particularitiesStmt, 8, gearsTypeId);
+                    setNullableInt(particularitiesStmt, 9, tractionTypeId);
+                    setNullableInt(particularitiesStmt, 10, colorId);
 
-                            carsStmt.addBatch();
+                    ResultSet rs = particularitiesStmt.executeQuery();
+                    if (rs.next()) {
+                        long particularitiesId = rs.getLong("id");
+
+                        carsStmt.setString(1, cleanLink);
+                        setNullableString(carsStmt, 2, car.getRegion());
+                        setNullableInt(carsStmt, 3, car.getMileage());
+                        setNullableInt(carsStmt, 4, car.getEurPrice());
+                        Timestamp timestamp = parseRomanianDate(car.getUpdateDate());
+                        if (timestamp == null) {
+                            carsStmt.setNull(5, Types.TIMESTAMP);
+                        } else {
+                            carsStmt.setTimestamp(5, timestamp);
                         }
-                    } catch (PSQLException e) {
-                        if (e.getSQLState().equals("23503")) {
-                            System.err.println("Enum value mismatch for car: " + cleanLink + " - " + e.getMessage());
-                            continue;
-                        }
-                        throw e;
+                        Integer adTypeId = getOrInsertLookup(conn, "ad_type", car.getAdType());
+                        setNullableInt(carsStmt, 6, adTypeId);
+                        carsStmt.setLong(7, particularitiesId);
+
+                        carsStmt.addBatch();
                     }
                 }
-
                 carsStmt.executeBatch();
                 conn.commit();
             } catch (SQLException e) {
@@ -87,6 +86,7 @@ public class DatabaseManager {
             }
         }
     }
+
 
     private void setNullableString(PreparedStatement stmt, int index, String value) throws SQLException {
         if (value == null) {
@@ -130,5 +130,40 @@ public class DatabaseManager {
             return null;
         }
     }
+
+    private Integer getOrInsertLookup(Connection conn, String tableName, Object value) throws SQLException {
+        if (value == null) return null;
+
+        String valueType = value.getClass().getSimpleName();
+
+        String selectSql = "SELECT id FROM " + tableName + " WHERE name = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(selectSql)) {
+            if (valueType.equals("Integer")) {
+                stmt.setInt(1, (Integer) value);
+            } else if (valueType.equals("String")) {
+                stmt.setString(1, value.toString());
+            } else {
+                throw new SQLException("Unsupported value type: " + valueType);
+            }
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) return rs.getInt("id");
+        }
+
+        String insertSql = "INSERT INTO " + tableName + " (name) VALUES (?) RETURNING id";
+        try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
+            if (valueType.equals("Integer")) {
+                stmt.setInt(1, (Integer) value);
+            } else if (valueType.equals("String")) {
+                stmt.setString(1, value.toString());
+            }
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) return rs.getInt("id");
+        }
+
+        return null;
+    }
+
 
 }
