@@ -40,5 +40,10 @@
             <artifactId>postgresql</artifactId>
             <version>42.7.5</version>
         </dependency>
+        <dependency>
+            <groupId>com.microsoft.playwright</groupId>
+            <artifactId>playwright</artifactId>
+            <version>1.52.0</version>
+        </dependency>
     </dependencies>
 </project>

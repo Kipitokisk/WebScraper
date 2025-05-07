@@ -24,8 +24,8 @@ public class DatabaseManager {
 
             String insertCarSql = """
             INSERT INTO cars (
-                link, region, mileage, price_eur, update_date, ad_type_id, particularities_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
+                link, region, mileage, price_eur, update_date, ad_type_id, particularities_id, title
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
         """;
 
             try (
@@ -76,6 +76,7 @@ public class DatabaseManager {
                         Integer adTypeId = getOrInsertLookup(conn, "ad_type", car.getAdType());
                         setNullableInt(carsStmt, 6, adTypeId);
                         carsStmt.setLong(7, particularitiesId);
+                        setNullableString(carsStmt, 8, car.getName());
 
                         carsStmt.addBatch();
                     }

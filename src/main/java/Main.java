@@ -1,6 +1,6 @@
-import factory.ChromeDriverFactory;
-import factory.FirefoxDriverFactory;
-import factory.WebDriverFactory;
+import factory.ChromiumPageFactory;
+import factory.FirefoxPageFactory;
+import factory.PlaywrightFactory;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
@@ -8,14 +8,13 @@ public class Main {
         String car_brand = "Renault";
         String car_model = "Megane";
         String car_generation = "III (2008 - 2016)";
-        String choice = "Chrome";
-        WebDriverFactory factory;
+        String choice = "Firefox";
+        PlaywrightFactory factory;
         Scraper scraper;
         if (choice.equals("Chrome")) {
-            factory = new ChromeDriverFactory();
-        } else {
-            factory = new FirefoxDriverFactory();
-        }
+            factory = new ChromiumPageFactory();
+        } else factory = new FirefoxPageFactory();
+
         scraper = new Scraper(factory, base_url, car_brand, car_model, car_generation);
         scraper.scrape();
     }

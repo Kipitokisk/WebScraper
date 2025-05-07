@@ -1,16 +1,14 @@
-import factory.WebDriverFactory;
+import com.microsoft.playwright.Locator;
+import com.microsoft.playwright.Page;
+import factory.ChromiumPageFactory;
+import factory.PlaywrightFactory;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.openqa.selenium.*;
-import org.openqa.selenium.NoSuchElementException;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.time.Duration;
 import java.util.*;
 
 public class Scraper {
@@ -18,13 +16,11 @@ public class Scraper {
     private final String car_brand;
     private final String car_model;
     private final String car_generation;
-    private WebDriver driver;
-    private WebDriverWait wait;
-    private JavascriptExecutor js;
-    private final WebDriverFactory factory;
+    private Page page;
+    private final PlaywrightFactory factory;
     private final DatabaseManager dbManager;
 
-    public Scraper(WebDriverFactory factory, String base_url, String car_brand, String car_model, String car_generation) {
+    public Scraper(PlaywrightFactory factory, String base_url, String car_brand, String car_model, String car_generation) {
         this.factory = factory;
         this.base_url = base_url;
         this.car_brand = car_brand;
@@ -33,104 +29,58 @@ public class Scraper {
         this.dbManager = new DatabaseManager();
     }
 
-    public void scrape() throws InterruptedException {
-        driver = setupDriver();
-        wait = new WebDriverWait(driver, Duration.ofSeconds(4));
-        js = (JavascriptExecutor) driver;
+    public void scrape() {
+        page = factory.createPage();
         List<CarDetails> finalProducts = new ArrayList<>();
         try {
-            navigateToSearchPage();
-            selectCarModelAndGeneration();
+            navigateToPage();
             processAllPages(finalProducts);
             saveResults(finalProducts);
+
         } finally {
-            driver.quit();
-        }
-    }
-
-    private WebDriver setupDriver() {
-        WebDriver driver = factory.createWebDriver();
-        Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
-        return driver;
-    }
-
-    private void navigateToSearchPage() {
-        driver.get(base_url);
-
-        WebElement transportLink = driver.findElement(By.cssSelector("a[data-category=\"658\"]"));
-        js.executeScript("arguments[0].click();", transportLink);
-
-        WebElement autoturismeLink = wait.until(ExpectedConditions.elementToBeClickable(
-                By.cssSelector("ul.styles_subcategory__column__wVUcl li a[data-subcategory='659']")
-        ));
-        js.executeScript("arguments[0].click();", autoturismeLink);
-
-        WebElement searchInput = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.cssSelector("input[data-test-id='filter-search']")
-        ));
-        searchInput.sendKeys(car_brand);
-    }
-
-    private void selectCarModelAndGeneration() {
-        WebElement modelDiv = wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.xpath("//div[contains(@class,'styles_checkbox__item__bOjAW')]//label[text()='" + car_model + "']/ancestor::div[contains(@class,'styles_checkbox__item__bOjAW')]")
-        ));
-
-        WebElement generationLabel = modelDiv.findElement(
-                By.xpath(".//div[contains(@class,'styles_children__H8mz2')]//label[text()='" + car_generation + "']")
-        );
-
-        if (!generationLabel.isSelected()) {
-            js.executeScript("arguments[0].click();", generationLabel);
-        }
-    }
-
-    private void processAllPages(List<CarDetails> finalProducts) throws InterruptedException {
-        while (true) {
-            processCurrentPage(finalProducts);
-
-            try {
-                Thread.sleep(1000);
-
-                WebElement nextButton = driver.findElement(By.cssSelector("button.Pagination_pagination__container__buttons__wrapper__icon__next__A22Rc"));
-                if (nextButton.isEnabled() && nextButton.isDisplayed()) {
-                    js.executeScript("arguments[0].click();", nextButton);
-                    Thread.sleep(1000);
-                } else {
-                    break;
-                }
-            } catch (NoSuchElementException | InterruptedException e) {
-                break;
+            if (page != null) {
+                page.close();
             }
+            factory.close();
         }
+    }
+
+    private void navigateToPage() {
+        page.navigate(base_url);
+        page.getByText("Transport").click();
+        page.getByText("Autoturisme").click();
+        page.getByPlaceholder("Сăutare").fill(car_brand);
+        Locator modelDiv = page.locator("xpath=//div[contains(@class,'styles_checkbox__item__bOjAW')]//label[text()='" + car_model + "']/ancestor::div[contains(@class,'styles_checkbox__item__bOjAW')]");
+        modelDiv.locator("xpath=//div[contains(@class,'styles_children__H8mz2')]//label[text()='" + car_generation + "']").click();
     }
 
     private void processCurrentPage(List<CarDetails> finalProducts) {
-        int maxRetries = 3;
-        int attempts = 0;
-
-        while (attempts < maxRetries) {
+        page.waitForSelector("div.styles_adlist__3YsgA.styles_flex__9wOfD");
+        String pageSource = page.content();
+        Document doc = Jsoup.parse(pageSource);
+        Elements carElements = doc.select("div.styles_adlist__3YsgA.styles_flex__9wOfD div.AdPhoto_wrapper__gAOIH");
+        for (Element carElement : carElements) {
             try {
-                String pageSource = driver.getPageSource();
-                Document doc = Jsoup.parse(pageSource);
-                Elements carElements = doc.select("div.styles_adlist__3YsgA.styles_flex__9wOfD div.AdPhoto_wrapper__gAOIH");
-
-                for (Element carElement : carElements) {
-                    try {
-                        extractCarDetails(carElement, finalProducts);
-                    } catch (Exception e) {
-                        System.err.println("Error processing car element: " + e.getMessage());
-                    }
-                }
-                break;
+                extractCarDetails(carElement, finalProducts);
             } catch (Exception e) {
-                System.err.println("Error processing page, retrying... (" + (attempts + 1) + "/" + maxRetries + ")");
-                attempts++;
+                System.err.println("Error processing car element: " + e.getMessage());
             }
         }
     }
 
-    private void extractCarDetails(Element carElement, List<CarDetails> finalProducts) throws IOException {
+    private void processAllPages(List<CarDetails> finalProducts) {
+        while (true) {
+            processCurrentPage(finalProducts);
+            Locator nextButton = page.getByText("›");
+            if (nextButton.isEnabled()) {
+                nextButton.click();
+            } else {
+                break;
+            }
+        }
+    }
+
+    private void extractCarDetails(Element carElement, List<CarDetails> finalProducts) {
         Element carLinkElement = carElement.selectFirst("a.AdPhoto_info__link__OwhY6");
         if (carLinkElement == null) return;
 
@@ -143,7 +93,7 @@ public class Scraper {
         }
     }
 
-    private CarDetails extractDetailedCarInfo(String carLink, String carName) throws IOException {
+    private CarDetails extractDetailedCarInfo(String carLink, String carName) {
         try {
             Document doc = Jsoup.connect(base_url + carLink).get();
             Elements items = doc.select("div.styles_aside__0m8KW");
@@ -169,7 +119,7 @@ public class Scraper {
                 try {
                     eurPrice = Integer.parseInt(eurPriceString.replaceAll("\\D", ""));
                 } catch (NumberFormatException e) {
-                    eurPrice = null;
+                    throw new NumberFormatException(e.getMessage());
                 }
             }
 
@@ -201,6 +151,7 @@ public class Scraper {
                 try {
                     yearOfFabrication = Integer.parseInt(yearText.replaceAll("\\D", ""));
                 } catch (NumberFormatException e) {
+                    throw new NumberFormatException(e.getMessage());
                 }
             }
 
@@ -214,6 +165,7 @@ public class Scraper {
                 try {
                     nrOfSeats = Integer.parseInt(seatsText.replaceAll("\\D", ""));
                 } catch (NumberFormatException e) {
+                    throw new NumberFormatException(e.getMessage());
                 }
             }
 
@@ -223,6 +175,7 @@ public class Scraper {
                 try {
                     nrOfDoors = Integer.parseInt(doorsText.replaceAll("\\D", ""));
                 } catch (NumberFormatException e) {
+                    throw new NumberFormatException(e.getMessage());
                 }
             }
 
@@ -232,6 +185,7 @@ public class Scraper {
                 try {
                     engineCapacity = Integer.parseInt(capacityText.replaceAll("\\D", ""));
                 } catch (NumberFormatException e) {
+                    throw new NumberFormatException(e.getMessage());
                 }
             }
 
@@ -241,6 +195,7 @@ public class Scraper {
                 try {
                     horsepower = Integer.parseInt(hpText.replaceAll("\\D", ""));
                 } catch (NumberFormatException e) {
+                    throw new NumberFormatException(e.getMessage());
                 }
             }
 
@@ -265,7 +220,7 @@ public class Scraper {
                 return null;
             }
 
-            return new CarDetails(base_url + carLink, car_brand + car_model + car_generation, eurPrice, mileage,
+            return new CarDetails(base_url + carLink, car_brand + " " + car_model + " " + car_generation, eurPrice, mileage,
                     updateDate, adType, region, author, yearOfFabrication, wheelSide, nrOfSeats, body,
                     nrOfDoors, engineCapacity, horsepower, petrolType, gearsType, tractionType, color);
 
@@ -282,17 +237,17 @@ public class Scraper {
 
         CarDetails maxEntry = finalProducts.stream()
                 .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
-                .max(Comparator.comparingInt(c -> c.getEurPrice()))
+                .max(Comparator.comparingInt(CarDetails::getEurPrice))
                 .orElseThrow(() -> new RuntimeException("There is no max price"));
 
         CarDetails minEntry = finalProducts.stream()
                 .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
-                .min(Comparator.comparingInt(c -> c.getEurPrice()))
+                .min(Comparator.comparingInt(CarDetails::getEurPrice))
                 .orElseThrow(() -> new RuntimeException("There is no min price"));
 
         double avgPrice = finalProducts.stream()
                 .filter(c -> c.getMileage() != null && c.getEurPrice() != null && c.getMileage() > 200000 && c.getMileage() < 400000 && c.getAdType().equals("Vând"))
-                .mapToInt(c -> c.getEurPrice())
+                .mapToInt(CarDetails::getEurPrice)
                 .average()
                 .orElseThrow(() -> new RuntimeException("Cannot compute average - list is empty"));
 
