@@ -189,7 +189,7 @@ public class Scraper {
             Elements particularityItems = doc.select("div.styles_features__right__Sn6fV > div.styles_group__aota8 > ul > li");
             for (Element item : particularityItems) {
                 Element keyElement = item.selectFirst("span.styles_group__key__uRhnQ");
-                Element valueElement = item.selectFirst("span.styles_group__value__XN7OI");
+                Element valueElement = item.selectFirst("span.styles_group__value__XN7OI, a.styles_group__value__XN7OI");
                 if (keyElement != null && valueElement != null) {
                     particularities.put(keyElement.text(), valueElement.text());
                 }
