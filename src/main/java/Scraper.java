@@ -19,6 +19,10 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,22 +41,25 @@ public class Scraper {
 
     public void scrape() throws IOException, InterruptedException {
         List<CarDetails> finalProducts = new ArrayList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(20);
+        List<Future<CarDetails>> futures = new ArrayList<>();
         try {
             List<String> adIds = fetchAdIds();
             logger.info("Fetched {} ad IDs", adIds.size());
 
             for (String adId : adIds) {
+                String carLink = "/ro/" + adId;
+                futures.add(executor.submit(() -> extractDetailedCarInfo(carLink)));
+            }
+            for (Future<CarDetails> car : futures) {
                 try {
-                    String carLink = "/ro/" + adId;
-                    CarDetails carDetails = extractDetailedCarInfo(carLink);
-                    if (carDetails != null) {
-                        finalProducts.add(carDetails);
-                    }
-                } catch (Exception e) {
-                    logger.error("Error processing ad ID {}: {}", adId, e.getMessage());
+                    CarDetails carDetails = car.get();
+                    if (carDetails != null) finalProducts.add(carDetails);
+                } catch (ExecutionException e) {
+                    logger.error("Error fetching car details: {}", e.getMessage());
                 }
             }
-
+            executor.shutdown();
             saveResults(finalProducts);
 
         } catch (IOException | InterruptedException e) {
@@ -183,10 +190,12 @@ public class Scraper {
             Element eurPriceElement = items.selectFirst("span.styles_sidebar__main__DaXQC");
             if (eurPriceElement != null) {
                 String eurPriceString = eurPriceElement.text();
-                try {
-                    eurPrice = Integer.parseInt(eurPriceString.replaceAll("\\D", ""));
-                } catch (NumberFormatException e) {
-                    throw new NumberFormatException(e.getMessage());
+                if (eurPriceString.contains("€")) {
+                    try {
+                        eurPrice = Integer.parseInt(eurPriceString.replaceAll("\\D", ""));
+                    } catch (NumberFormatException e) {
+                        throw new NumberFormatException(e.getMessage());
+                    }
                 }
             }
 
@@ -292,9 +301,7 @@ public class Scraper {
                 }
             }
 
-            if ((eurPrice != null && (eurPrice < 100 || eurPrice > 70000)) ||
-                    (mileage != null && (mileage < 100 || mileage == 111 || mileage == 1111 || mileage == 11111 || mileage == 111111 ||
-                            mileage == 77777 || mileage == 777777 || mileage == 12345 || mileage == 123456))) {
+            if ((eurPrice == null) || (eurPrice > 20000) || (mileage == null)) {
                 return null;
             }
 
@@ -332,7 +339,7 @@ public class Scraper {
 
         logger.info("Max price: {} (Link: {})", maxEntry.getEurPrice(), maxEntry.getLink());
         logger.info("Min price: {} (Link: {})", minEntry.getEurPrice(), minEntry.getLink());
-        logger.info("Average price: {:.2f}", avgPrice);
+        logger.info("Average price: {}", String.format("%.2f", avgPrice));
     }
 
     private void saveResults(List<CarDetails> finalProducts) {
