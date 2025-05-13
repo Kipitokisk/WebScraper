@@ -30,10 +30,10 @@ public class Scraper {
         this.car_brand = car_brand;
         this.car_model = car_model;
         this.car_generation = car_generation;
-        this.dbManager = new DatabaseManager();
+        this.dbManager = new DatabaseManager("jdbc:postgresql://postgres-db:5432/scraper_db", "postgres", "pass");
     }
 
-    public void scrape() throws InterruptedException {
+    public void scrape() {
         driver = setupDriver();
         wait = new WebDriverWait(driver, Duration.ofSeconds(4));
         js = (JavascriptExecutor) driver;
@@ -85,7 +85,7 @@ public class Scraper {
         }
     }
 
-    private void processAllPages(List<CarDetails> finalProducts) throws InterruptedException {
+    private void processAllPages(List<CarDetails> finalProducts) {
         while (true) {
             processCurrentPage(finalProducts);
 
@@ -130,7 +130,7 @@ public class Scraper {
         }
     }
 
-    private void extractCarDetails(Element carElement, List<CarDetails> finalProducts) throws IOException {
+    void extractCarDetails(Element carElement, List<CarDetails> finalProducts) throws IOException {
         Element carLinkElement = carElement.selectFirst("a.AdPhoto_info__link__OwhY6");
         if (carLinkElement == null) return;
 
@@ -143,7 +143,7 @@ public class Scraper {
         }
     }
 
-    private CarDetails extractDetailedCarInfo(String carLink, String carName) throws IOException {
+    CarDetails extractDetailedCarInfo(String carLink, String carName) {
         try {
             Document doc = Jsoup.connect(base_url + carLink).get();
             Elements items = doc.select("div.styles_aside__0m8KW");
@@ -265,7 +265,7 @@ public class Scraper {
                 return null;
             }
 
-            return new CarDetails(base_url + carLink, car_brand + car_model + car_generation, eurPrice, mileage,
+            return new CarDetails(base_url + carLink, car_brand + " " + car_model + " " + car_generation, eurPrice, mileage,
                     updateDate, adType, region, author, yearOfFabrication, wheelSide, nrOfSeats, body,
                     nrOfDoors, engineCapacity, horsepower, petrolType, gearsType, tractionType, color);
 
@@ -275,24 +275,24 @@ public class Scraper {
         }
     }
 
-    private void printResults(List<CarDetails> finalProducts) {
+    void printResults(List<CarDetails> finalProducts) {
         if (finalProducts == null || finalProducts.isEmpty()) {
             throw new RuntimeException("Product list is empty or null");
         }
 
         CarDetails maxEntry = finalProducts.stream()
                 .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
-                .max(Comparator.comparingInt(c -> c.getEurPrice()))
+                .max(Comparator.comparingInt(CarDetails::getEurPrice))
                 .orElseThrow(() -> new RuntimeException("There is no max price"));
 
         CarDetails minEntry = finalProducts.stream()
                 .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
-                .min(Comparator.comparingInt(c -> c.getEurPrice()))
+                .min(Comparator.comparingInt(CarDetails::getEurPrice))
                 .orElseThrow(() -> new RuntimeException("There is no min price"));
 
         double avgPrice = finalProducts.stream()
                 .filter(c -> c.getMileage() != null && c.getEurPrice() != null && c.getMileage() > 200000 && c.getMileage() < 400000 && c.getAdType().equals("Vând"))
-                .mapToInt(c -> c.getEurPrice())
+                .mapToInt(CarDetails::getEurPrice)
                 .average()
                 .orElseThrow(() -> new RuntimeException("Cannot compute average - list is empty"));
 
