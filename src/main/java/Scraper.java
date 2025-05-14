@@ -30,7 +30,7 @@ public class Scraper {
         this.car_brand = car_brand;
         this.car_model = car_model;
         this.car_generation = car_generation;
-        this.dbManager = new DatabaseManager("jdbc:postgresql://postgres-db:5432/scraper_db", "postgres", "pass");
+        this.dbManager = new DatabaseManager("jdbc:postgresql://selenium-postgres-db:5432/scraper_db", "postgres", "pass");
     }
 
     public void scrape() {

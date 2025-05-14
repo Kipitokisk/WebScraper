@@ -3,7 +3,7 @@ version: "3.9"
 services:
   db:
     image: postgres:15
-    container_name: postgres-db
+    container_name: selenium-postgres-db
     restart: always
     environment:
       POSTGRES_DB: scraper_db
@@ -19,7 +19,7 @@ services:
     build:
       context: .
       target: selenium
-    container_name: webscraper-app
+    container_name: selenium-webscraper-app
     depends_on:
       - db
     environment:
