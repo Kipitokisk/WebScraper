@@ -36,7 +36,7 @@ public class Scraper {
     public Scraper(String base_url, String search_url) {
         this.base_url = base_url;
         this.search_url = search_url;
-        this.dbManager = new DatabaseManager();
+        this.dbManager = new DatabaseManager("jdbc:postgresql://http-postgres-db:5432/scraper_db", "postgres", "pass");
     }
 
     public void scrape() throws IOException, InterruptedException {
@@ -136,7 +136,7 @@ public class Scraper {
         return adIds;
     }
 
-    private Map<String, String> extractFilterParams(String searchUrl) throws IOException {
+     Map<String, String> extractFilterParams(String searchUrl) throws IOException {
         Map<String, String> params = new HashMap<>();
         try {
             URL url = new URL(searchUrl);
@@ -160,7 +160,7 @@ public class Scraper {
         return params;
     }
 
-    private CarDetails extractDetailedCarInfo(String carLink) {
+    CarDetails extractDetailedCarInfo(String carLink) {
         try {
             Document doc = Jsoup.connect(base_url + carLink).get();
 
@@ -315,7 +315,7 @@ public class Scraper {
         }
     }
 
-    private void printResults(List<CarDetails> finalProducts) {
+    void printResults(List<CarDetails> finalProducts) {
         if (finalProducts == null || finalProducts.isEmpty()) {
             throw new RuntimeException("Product list is empty or null");
         }
@@ -337,9 +337,9 @@ public class Scraper {
                 .average()
                 .orElseThrow(() -> new RuntimeException("Cannot compute average - list is empty"));
 
-        logger.info("Max price: {} (Link: {})", maxEntry.getEurPrice(), maxEntry.getLink());
-        logger.info("Min price: {} (Link: {})", minEntry.getEurPrice(), minEntry.getLink());
-        logger.info("Average price: {}", String.format("%.2f", avgPrice));
+        System.out.println("Max price: " + maxEntry.getEurPrice() + " (Link: " + maxEntry.getLink() + ")");
+        System.out.println("Min price: " + minEntry.getEurPrice() + " (Link: " + minEntry.getLink() + ")");
+        System.out.printf("Average price: %.2f%n", avgPrice);
     }
 
     private void saveResults(List<CarDetails> finalProducts) {
