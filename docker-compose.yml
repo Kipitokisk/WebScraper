@@ -23,9 +23,9 @@ services:
     depends_on:
       - db
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/scraper_db
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: pass
+      DATASOURCE_URL: jdbc:postgresql://db:5432/scraper_db
+      DATASOURCE_USERNAME: postgres
+      DATASOURCE_PASSWORD: pass
       FIREFOX_BIN: /usr/bin/firefox-esr
     ports:
       - "8080:8080"
