@@ -41,9 +41,8 @@ public class Scraper {
 
     public void scrape() throws IOException, InterruptedException {
         List<CarDetails> finalProducts = new ArrayList<>();
-        List<Future<CarDetails>> futures = new ArrayList<>();
         try {
-            processCars(futures, finalProducts);
+            processCars( finalProducts);
             saveResults(finalProducts);
         } catch (IOException | InterruptedException e) {
             logger.error("Error during scraping: {}", e.getMessage());
@@ -51,8 +50,9 @@ public class Scraper {
         }
     }
 
-    private void processCars(List<Future<CarDetails>> futures, List<CarDetails> finalProducts) throws IOException, InterruptedException {
+    private void processCars( List<CarDetails> finalProducts) throws IOException, InterruptedException {
         List<String> adIds = fetchAdIds();
+        List<Future<CarDetails>> futures = new ArrayList<>();
         ExecutorService executor = Executors.newFixedThreadPool(20);
         logger.info("Fetched {} ad IDs", adIds.size());
 
