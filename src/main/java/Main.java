@@ -8,7 +8,7 @@ public class Main {
         String car_brand = "Renault";
         String car_model = "Megane";
         String car_generation = "III (2008 - 2016)";
-        String choice = "Firefox";
+        String choice = "Chrome";
         PlaywrightFactory factory;
         Scraper scraper;
         if (choice.equals("Chrome")) {

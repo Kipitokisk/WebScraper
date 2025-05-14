@@ -9,8 +9,7 @@ public class ChromiumPageFactory implements PlaywrightFactory{
     public ChromiumPageFactory() {
         this.playwright = Playwright.create();
         BrowserType.LaunchOptions launchOptions = new BrowserType.LaunchOptions()
-                .setHeadless(true)
-                .setChannel("chrome");
+                .setHeadless(true);
         this.browser = playwright.chromium().launch(launchOptions);
     }
 

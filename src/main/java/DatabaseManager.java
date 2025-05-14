@@ -6,12 +6,18 @@ import java.util.List;
 import java.util.Locale;
 
 public class DatabaseManager {
-    private static final String DB_URL = "jdbc:postgresql://localhost:5432/scraper_db";
-    private static final String DB_USER = "postgres";
-    private static final String DB_PASSWORD = "pass";
+    private final String dbUrl;
+    private final String dbUser;
+    private final String dbPassword;
+
+    public DatabaseManager(String dbUrl, String dbUser, String dbPassword) {
+        this.dbUrl = dbUrl;
+        this.dbUser = dbUser;
+        this.dbPassword = dbPassword;
+    }
 
     public void saveCars(List<CarDetails> finalProducts) throws SQLException {
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+        try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
             conn.setAutoCommit(false);
 
             String insertParticularitiesSql = """
@@ -24,8 +30,8 @@ public class DatabaseManager {
 
             String insertCarSql = """
             INSERT INTO cars (
-                link, region, mileage, price_eur, update_date, ad_type_id, particularities_id, title
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
+                link, region, mileage, price_eur, update_date, ad_type_id, particularities_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
         """;
 
             try (
@@ -76,7 +82,6 @@ public class DatabaseManager {
                         Integer adTypeId = getOrInsertLookup(conn, "ad_type", car.getAdType());
                         setNullableInt(carsStmt, 6, adTypeId);
                         carsStmt.setLong(7, particularitiesId);
-                        setNullableString(carsStmt, 8, car.getName());
 
                         carsStmt.addBatch();
                     }
@@ -137,36 +142,22 @@ public class DatabaseManager {
     private Integer getOrInsertLookup(Connection conn, String tableName, Object value) throws SQLException {
         if (value == null) return null;
 
-        String valueType = value.getClass().getSimpleName();
+        String stringValue = value.toString();
 
-        String selectSql = "SELECT id FROM " + tableName + " WHERE name = ?";
+        String selectSql = "SELECT id FROM " + tableName + " WHERE \"name\" = ?";
         try (PreparedStatement stmt = conn.prepareStatement(selectSql)) {
-            if (valueType.equals("Integer")) {
-                stmt.setInt(1, (Integer) value);
-            } else if (valueType.equals("String")) {
-                stmt.setString(1, value.toString());
-            } else {
-                throw new SQLException("Unsupported value type: " + valueType);
-            }
-
+            stmt.setString(1, stringValue);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) return rs.getInt("id");
         }
 
-        String insertSql = "INSERT INTO " + tableName + " (name) VALUES (?) RETURNING id";
+        String insertSql = "INSERT INTO " + tableName + " (\"name\") VALUES (?) RETURNING id";
         try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
-            if (valueType.equals("Integer")) {
-                stmt.setInt(1, (Integer) value);
-            } else if (valueType.equals("String")) {
-                stmt.setString(1, value.toString());
-            }
-
+            stmt.setString(1, stringValue);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) return rs.getInt("id");
         }
 
         return null;
     }
-
-
 }

@@ -26,7 +26,7 @@ public class Scraper {
         this.car_brand = car_brand;
         this.car_model = car_model;
         this.car_generation = car_generation;
-        this.dbManager = new DatabaseManager();
+        this.dbManager = new DatabaseManager("jdbc:postgresql://playwright-postgres-db:5432/scraper_db", "postgres", "pass");
     }
 
     public void scrape() {
@@ -80,7 +80,7 @@ public class Scraper {
         }
     }
 
-    private void extractCarDetails(Element carElement, List<CarDetails> finalProducts) {
+    void extractCarDetails(Element carElement, List<CarDetails> finalProducts) {
         Element carLinkElement = carElement.selectFirst("a.AdPhoto_info__link__OwhY6");
         if (carLinkElement == null) return;
 
@@ -93,7 +93,7 @@ public class Scraper {
         }
     }
 
-    private CarDetails extractDetailedCarInfo(String carLink, String carName) {
+    CarDetails extractDetailedCarInfo(String carLink, String carName) {
         try {
             Document doc = Jsoup.connect(base_url + carLink).get();
             Elements items = doc.select("div.styles_aside__0m8KW");
@@ -230,7 +230,7 @@ public class Scraper {
         }
     }
 
-    private void printResults(List<CarDetails> finalProducts) {
+    void printResults(List<CarDetails> finalProducts) {
         if (finalProducts == null || finalProducts.isEmpty()) {
             throw new RuntimeException("Product list is empty or null");
         }
