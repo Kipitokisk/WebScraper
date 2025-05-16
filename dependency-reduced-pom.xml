@@ -18,7 +18,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>Main</mainClass>
+                  <mainClass>scraper.Main</mainClass>
                 </transformer>
               </transformers>
             </configuration>

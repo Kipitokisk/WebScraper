@@ -1,3 +1,5 @@
+package scraper;
+
 public class CarDetails {
     private final String link;
     private final String name;
