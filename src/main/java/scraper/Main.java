@@ -1,3 +1,5 @@
+package scraper;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,7 +16,7 @@ public class Main {
             scraper.scrape();
             long endTime = System.nanoTime() - startTime;
             logger.info("Scraping completed successfully");
-            System.out.println(endTime);
+            logger.info("Time in seconds: {}", endTime/1000000000L);
         } catch (Exception e) {
             logger.error("Error running scraper", e);
         }

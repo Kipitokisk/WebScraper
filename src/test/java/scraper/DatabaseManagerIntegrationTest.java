@@ -1,3 +1,5 @@
+package scraper;
+
 import org.junit.jupiter.api.*;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -61,11 +63,11 @@ class DatabaseManagerIntegrationTest {
             stmt.execute("DROP TABLE IF EXISTS ad_type CASCADE");
 
             stmt.execute("CREATE TABLE wheel_side (id SERIAL PRIMARY KEY, name VARCHAR(50) UNIQUE)");
-            stmt.execute("CREATE TABLE nr_of_seats (id SERIAL PRIMARY KEY, name INTEGER UNIQUE)");
+            stmt.execute("CREATE TABLE nr_of_seats (id SERIAL PRIMARY KEY, name VARCHAR(50) UNIQUE)");
             stmt.execute("CREATE TABLE body (id SERIAL PRIMARY KEY, name VARCHAR(50) UNIQUE)");
-            stmt.execute("CREATE TABLE nr_of_doors (id SERIAL PRIMARY KEY, name INTEGER UNIQUE)");
-            stmt.execute("CREATE TABLE engine_capacity (id SERIAL PRIMARY KEY, name INTEGER UNIQUE)");
-            stmt.execute("CREATE TABLE horsepower (id SERIAL PRIMARY KEY, name INTEGER UNIQUE)");
+            stmt.execute("CREATE TABLE nr_of_doors (id SERIAL PRIMARY KEY, name VARCHAR(50) UNIQUE)");
+            stmt.execute("CREATE TABLE engine_capacity (id SERIAL PRIMARY KEY, name VARCHAR(50) UNIQUE)");
+            stmt.execute("CREATE TABLE horsepower (id SERIAL PRIMARY KEY, name VARCHAR(50) UNIQUE)");
             stmt.execute("CREATE TABLE petrol_type (id SERIAL PRIMARY KEY, name VARCHAR(50) UNIQUE)");
             stmt.execute("CREATE TABLE gears_type (id SERIAL PRIMARY KEY, name VARCHAR(50) UNIQUE)");
             stmt.execute("CREATE TABLE traction_type (id SERIAL PRIMARY KEY, name VARCHAR(50) UNIQUE)");

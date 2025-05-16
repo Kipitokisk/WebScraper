@@ -1,3 +1,5 @@
+package scraper;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jsoup.Jsoup;
@@ -8,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.net.http.HttpClient;
@@ -28,26 +31,21 @@ import java.util.regex.Pattern;
 
 public class Scraper {
     private static final Logger logger = LoggerFactory.getLogger(Scraper.class);
-    private final String base_url;
-    private final String search_url;
+    private final String baseUrl;
+    private final String searchUrl;
 
     private final DatabaseManager dbManager;
 
-    public Scraper(String base_url, String search_url) {
-        this.base_url = base_url;
-        this.search_url = search_url;
+    public Scraper(String baseUrl, String searchUrl) {
+        this.baseUrl = baseUrl;
+        this.searchUrl = searchUrl;
         this.dbManager = new DatabaseManager("jdbc:postgresql://http-postgres-db:5432/scraper_db", "postgres", "pass");
     }
 
-    public void scrape() throws IOException, InterruptedException {
+    public void scrape() throws IOException, InterruptedException, SQLException {
         List<CarDetails> finalProducts = new ArrayList<>();
-        try {
-            processCars( finalProducts);
-            saveResults(finalProducts);
-        } catch (IOException | InterruptedException e) {
-            logger.error("Error during scraping: {}", e.getMessage());
-            throw e;
-        }
+        processCars( finalProducts);
+        saveResults(finalProducts);
     }
 
     private void processCars( List<CarDetails> finalProducts) throws IOException, InterruptedException {
@@ -73,13 +71,14 @@ public class Scraper {
 
     private List<String> fetchAdIds() throws IOException, InterruptedException {
         String url = "https://999.md/graphql";
-
-        Map<String, String> filterParams = extractFilterParams(search_url);
-        if (!filterParams.containsKey("featureId") || !filterParams.containsKey("optionId")) {
+        String paramFeature = "featureId";
+        String paramOption = "optionId";
+        Map<String, String> filterParams = extractFilterParams(searchUrl, paramFeature, paramOption);
+        if (!filterParams.containsKey(paramFeature) || !filterParams.containsKey(paramOption)) {
             throw new IOException("Could not extract featureId or optionId from URL");
         }
-        String featureId = filterParams.get("featureId");
-        String optionId = filterParams.get("optionId");
+        String featureId = filterParams.get(paramFeature);
+        String optionId = filterParams.get(paramOption);
 
         String graphqlPayload = String.format("""
             {
@@ -138,39 +137,41 @@ public class Scraper {
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
-            logger.error("GraphQL request failed with status {}: {}", response.statusCode(), response.body());
             throw new IOException("HTTP error: " + response.statusCode() + " - " + response.body());
         }
         return response;
     }
 
-    Map<String, String> extractFilterParams(String searchUrl) throws IOException {
+    Map<String, String> extractFilterParams(String searchUrl, String paramFeature, String paramOption) throws IOException {
         Map<String, String> params = new HashMap<>();
         try {
-            URL url = new URL(searchUrl);
-            String query = url.getQuery();
-            if (query != null) {
-                String[] pairs = query.split("&");
-                Pattern pattern = Pattern.compile("o_\\d+_(\\d+)_\\d+_\\d+=(\\d+)");
-                for (String pair : pairs) {
-                    Matcher matcher = pattern.matcher(pair);
-                    if (matcher.matches()) {
-                        params.put("featureId", matcher.group(1));
-                        params.put("optionId", matcher.group(2));
-                        break;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Error parsing URL parameters: {}", e.getMessage());
+            parseUrlElements(searchUrl, params, paramFeature, paramOption);
+        } catch (MalformedURLException e) {
             throw new IOException("Invalid URL format", e);
         }
         return params;
     }
 
+    private static void parseUrlElements(String searchUrl, Map<String, String> params, String paramFeature, String paramOption) throws MalformedURLException {
+        URL url = new URL(searchUrl);
+        String query = url.getQuery();
+        if (query != null) {
+            String[] pairs = query.split("&");
+            Pattern pattern = Pattern.compile("o_\\d+_(\\d+)_\\d+_\\d+=(\\d+)");
+            for (String pair : pairs) {
+                Matcher matcher = pattern.matcher(pair);
+                if (matcher.matches()) {
+                    params.put(paramFeature, matcher.group(1));
+                    params.put(paramOption, matcher.group(2));
+                    break;
+                }
+            }
+        }
+    }
+
     CarDetails extractDetailedCarInfo(String carLink) {
         try {
-            Document doc = Jsoup.connect(base_url + carLink).get();
+            Document doc = Jsoup.connect(baseUrl + carLink).get();
             
             String title = getTitle(doc);
 
@@ -219,19 +220,19 @@ public class Scraper {
                 return null;
             }
 
-            return new CarDetails(base_url + carLink, title + " " + generation, eurPrice, mileage,
+            return new CarDetails(baseUrl + carLink, title + " " + generation, eurPrice, mileage,
                     updateDate, adType, region, author, yearOfFabrication, wheelSide, nrOfSeats, body,
                     nrOfDoors, engineCapacity, horsepower, petrolType, gearsType, tractionType, color);
 
         } catch (IOException e) {
-            System.err.println("Error fetching car details page: " + (base_url + carLink) + " - " + e.getMessage());
+            logger.error("Error fetching car details page: {}{} - {}",baseUrl, carLink, e.getMessage());
             return null;
         }
     }
 
-    private static Integer getIntegerFromSection(Map<String, String> particularities, String element) {
+    Integer getIntegerFromSection(Map<String, String> map, String element) {
         Integer result = null;
-        String text = particularities.get(element);
+        String text = map.get(element);
         if (text != null) {
             try {
                 result = Integer.parseInt(text.replaceAll("\\D", ""));
@@ -242,18 +243,18 @@ public class Scraper {
         return result;
     }
 
-    private static void extractSection(Document doc, String cssQuery, Map<String, String> generalities) {
+    void extractSection(Document doc, String cssQuery, Map<String, String> map) {
         Elements generalitiesItems = doc.select(cssQuery);
         for (Element item : generalitiesItems) {
             Element keyElement = item.selectFirst("span.styles_group__key__uRhnQ");
             Element valueElement = item.selectFirst("span.styles_group__value__XN7OI, a.styles_group__value__XN7OI");
             if (keyElement != null && valueElement != null) {
-                generalities.put(keyElement.text(), valueElement.text());
+                map.put(keyElement.text(), valueElement.text());
             }
         }
     }
 
-    private static Integer getEurPrice(String eurPriceText) {
+    Integer getEurPrice(String eurPriceText) {
         Integer result = null;
         try {
             if (eurPriceText.contains("€")) {
@@ -265,7 +266,7 @@ public class Scraper {
         return result;
     }
 
-    private static String getTitle(Document doc) {
+    String getTitle(Document doc) {
         String result = null;
         Element titleElement = doc.selectFirst("h1");
         if (titleElement != null) {
@@ -274,7 +275,7 @@ public class Scraper {
         return result;
     }
 
-    private static String getAdInfo(Elements items, String cssQuery) {
+    String getAdInfo(Elements items, String cssQuery) {
         String result = null;
         Element element = items.selectFirst(cssQuery);
         if (element != null) {
@@ -284,7 +285,7 @@ public class Scraper {
         return result;
     }
 
-    private static String getString(Elements items, String cssQuery) {
+    String getString(Elements items, String cssQuery) {
         String result = null;
         Element element = items.selectFirst(cssQuery);
         if (element != null) {
@@ -294,9 +295,7 @@ public class Scraper {
     }
 
     void printResults(List<CarDetails> finalProducts) {
-        if (finalProducts == null || finalProducts.isEmpty()) {
-            throw new RuntimeException("Product list is empty or null");
-        }
+        checkFinalProducts(finalProducts);
 
         CarDetails maxEntry = getMaxEntry(finalProducts);
 
@@ -309,7 +308,13 @@ public class Scraper {
         System.out.printf("Average price: %.2f%n", avgPrice);
     }
 
-    private static double getAvgPrice(List<CarDetails> finalProducts, int minMileage, int maxMileage) {
+    void checkFinalProducts(List<CarDetails> finalProducts) {
+        if (finalProducts == null || finalProducts.isEmpty()) {
+            throw new IllegalArgumentException("Product list is empty or null");
+        }
+    }
+
+    double getAvgPrice(List<CarDetails> finalProducts, int minMileage, int maxMileage) {
         return finalProducts.stream()
                 .filter(c -> c.getMileage() != null && c.getEurPrice() != null && c.getMileage() > minMileage &&
                         c.getMileage() < maxMileage && c.getAdType().equals("Vând"))
@@ -318,32 +323,27 @@ public class Scraper {
                 .orElseThrow(() -> new RuntimeException("Cannot compute average - list is empty"));
     }
 
-    private static CarDetails getMinEntry(List<CarDetails> finalProducts) {
+    CarDetails getMinEntry(List<CarDetails> finalProducts) {
         return finalProducts.stream()
                 .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
                 .min(Comparator.comparingInt(CarDetails::getEurPrice))
                 .orElseThrow(() -> new RuntimeException("There is no min price"));
     }
 
-    private static CarDetails getMaxEntry(List<CarDetails> finalProducts) {
+    CarDetails getMaxEntry(List<CarDetails> finalProducts) {
         return finalProducts.stream()
                 .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
                 .max(Comparator.comparingInt(CarDetails::getEurPrice))
                 .orElseThrow(() -> new RuntimeException("There is no max price"));
     }
 
-    private void saveResults(List<CarDetails> finalProducts) {
+    private void saveResults(List<CarDetails> finalProducts) throws SQLException{
         if (finalProducts.isEmpty()) {
             logger.info("No products found.");
             return;
         }
 
-        try {
-            dbManager.saveCars(finalProducts);
-            printResults(finalProducts);
-        } catch (SQLException e) {
-            logger.error("Failed to save results to database: {}", e.getMessage());
-            throw new RuntimeException("Database error", e);
-        }
+        dbManager.saveCars(finalProducts);
+        printResults(finalProducts);
     }
 }
