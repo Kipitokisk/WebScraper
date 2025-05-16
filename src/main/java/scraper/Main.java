@@ -1,13 +1,17 @@
+package scraper;
+
 import factory.ChromiumPageFactory;
 import factory.FirefoxPageFactory;
 import factory.PlaywrightFactory;
 
+import java.sql.SQLException;
+
 public class Main {
-    public static void main(String[] args) throws InterruptedException {
-        String base_url = "https://999.md";
-        String car_brand = "Renault";
-        String car_model = "Megane";
-        String car_generation = "III (2008 - 2016)";
+    public static void main(String[] args) throws SQLException {
+        String baseUrl = "https://999.md";
+        String carBrand = "Renault";
+        String carModel = "Megane";
+        String carGeneration = "III (2008 - 2016)";
         String choice = "Chrome";
         PlaywrightFactory factory;
         Scraper scraper;
@@ -15,7 +19,7 @@ public class Main {
             factory = new ChromiumPageFactory();
         } else factory = new FirefoxPageFactory();
 
-        scraper = new Scraper(factory, base_url, car_brand, car_model, car_generation);
+        scraper = new Scraper(factory, baseUrl, carBrand, carModel, carGeneration);
         scraper.scrape();
     }
 }

@@ -1,3 +1,8 @@
+package scraper;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.*;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -6,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class DatabaseManager {
+    private static final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
     private final String dbUrl;
     private final String dbUser;
     private final String dbPassword;
@@ -134,7 +140,7 @@ public class DatabaseManager {
             Date parsed = sdf.parse(replaced);
             return new Timestamp(parsed.getTime());
         } catch (ParseException e) {
-            System.err.println("Failed to parse normalized date: " + replaced);
+            logger.error("Failed to parse normalized date: {}", replaced);
             return null;
         }
     }
