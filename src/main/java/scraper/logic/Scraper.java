@@ -30,11 +30,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Scraper {
-    final Logger logger;
-    final String baseUrl;
-    final String searchUrl;
-    final DatabaseManager dbManager;
-    final HttpClient client;
+    private final Logger logger;
+    private final String baseUrl;
+    private final String searchUrl;
+    private final DatabaseManager dbManager;
+    private final HttpClient client;
 
 
     public Scraper(String baseUrl, String searchUrl, DatabaseManager dbManager, Logger logger, HttpClient client) {
