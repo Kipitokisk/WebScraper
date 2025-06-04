@@ -2,17 +2,27 @@ package scraper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scraper.database.DatabaseManager;
+import scraper.logic.Scraper;
+
+import java.net.http.HttpClient;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
-        String baseUrl = "https://999.md";
-        String searchUrl = "https://999.md/ro/list/transport/cars?appl=1&ef=16,1,6,2200&eo=12885,12900,12912,139,35538&aof=20&o_1_2095_8_98=36188";
+        String baseUrl = System.getenv("BASE_URL");
+        String searchUrl = System.getenv("SEARCH_URL");
+        String dbUrl = System.getenv("DATASOURCE_URL");
+        String dbUser = System.getenv("DATASOURCE_USERNAME");
+        String dbPass = System.getenv("DATASOURCE_PASSWORD");
+        HttpClient client = HttpClient.newHttpClient();
+        Logger scraperLogger = LoggerFactory.getLogger(Scraper.class);
 
         try {
             long startTime = System.nanoTime();
-            Scraper scraper = new Scraper(baseUrl, searchUrl);
+            DatabaseManager databaseManager = new DatabaseManager(dbUrl, dbUser, dbPass);
+            Scraper scraper = new Scraper(baseUrl, searchUrl, databaseManager, scraperLogger, client);
             scraper.scrape();
             long endTime = System.nanoTime() - startTime;
             logger.info("Scraping completed successfully");

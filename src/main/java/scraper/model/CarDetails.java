@@ -1,4 +1,4 @@
-package scraper;
+package scraper.model;
 
 public class CarDetails {
     private final String link;
@@ -21,7 +21,7 @@ public class CarDetails {
     private final String tractionType;
     private final String color;
 
-    CarDetails(String link, String name, Integer eurPrice, Integer mileage,
+    public CarDetails(String link, String name, Integer eurPrice, Integer mileage,
                String updateDate, String adType, String region, String author, Integer yearOfFabrication,
                String wheelSide, Integer nrOfSeats, String body, Integer nrOfDoors, Integer engineCapacity,
                Integer horsepower, String petrolType, String gearsType, String tractionType, String color) {

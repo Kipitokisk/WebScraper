@@ -1,7 +1,8 @@
-package scraper;
+package scraper.database;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scraper.model.CarDetails;
 
 import java.sql.*;
 import java.text.ParseException;
@@ -45,49 +46,14 @@ public class DatabaseManager {
                     PreparedStatement carsStmt = conn.prepareStatement(insertCarSql)
             ) {
                 for (CarDetails car : finalProducts) {
-                    String cleanLink = car.getLink().split("\\?")[0];
-
-                    Integer wheelSideId = getOrInsertLookup(conn, "wheel_side", car.getWheelSide());
-                    Integer nrOfSeatsId = getOrInsertLookup(conn, "nr_of_seats", car.getNrOfSeats());
-                    Integer bodyId = getOrInsertLookup(conn, "body", car.getBody());
-                    Integer nrOfDoorsId = getOrInsertLookup(conn, "nr_of_doors", car.getNrOfDoors());
-                    Integer engineCapacityId = getOrInsertLookup(conn, "engine_capacity", car.getEngineCapacity());
-                    Integer horsepowerId = getOrInsertLookup(conn, "horsepower", car.getHorsepower());
-                    Integer petrolTypeId = getOrInsertLookup(conn, "petrol_type", car.getPetrolType());
-                    Integer gearsTypeId = getOrInsertLookup(conn, "gears_type", car.getGearsType());
-                    Integer tractionTypeId = getOrInsertLookup(conn, "traction_type", car.getTractionType());
-                    Integer colorId = getOrInsertLookup(conn, "color", car.getColor());
-
-                    setNullableString(particularitiesStmt, 1, car.getAuthor());
-                    setNullableInt(particularitiesStmt, 2, car.getYearOfFabrication());
-                    setNullableInt(particularitiesStmt, 3, wheelSideId);
-                    setNullableInt(particularitiesStmt, 4, nrOfSeatsId);
-                    setNullableInt(particularitiesStmt, 5, bodyId);
-                    setNullableInt(particularitiesStmt, 6, nrOfDoorsId);
-                    setNullableInt(particularitiesStmt, 7, engineCapacityId);
-                    setNullableInt(particularitiesStmt, 8, horsepowerId);
-                    setNullableInt(particularitiesStmt, 9, petrolTypeId);
-                    setNullableInt(particularitiesStmt, 10, gearsTypeId);
-                    setNullableInt(particularitiesStmt, 11, tractionTypeId);
-                    setNullableInt(particularitiesStmt, 12, colorId);
+                    prepareParticularities(car, conn, particularitiesStmt);
 
                     ResultSet rs = particularitiesStmt.executeQuery();
                     if (rs.next()) {
                         long particularitiesId = rs.getLong("id");
+                        String cleanLink = car.getLink().split("\\?")[0];
 
-                        carsStmt.setString(1, cleanLink);
-                        setNullableString(carsStmt, 2, car.getRegion());
-                        setNullableInt(carsStmt, 3, car.getMileage());
-                        setNullableInt(carsStmt, 4, car.getEurPrice());
-                        Timestamp timestamp = parseRomanianDate(car.getUpdateDate());
-                        if (timestamp == null) {
-                            carsStmt.setNull(5, Types.TIMESTAMP);
-                        } else {
-                            carsStmt.setTimestamp(5, timestamp);
-                        }
-                        Integer adTypeId = getOrInsertLookup(conn, "ad_type", car.getAdType());
-                        setNullableInt(carsStmt, 6, adTypeId);
-                        carsStmt.setLong(7, particularitiesId);
+                        prepareCar(car, carsStmt, cleanLink, conn, particularitiesId);
 
                         carsStmt.addBatch();
                     }
@@ -101,8 +67,50 @@ public class DatabaseManager {
         }
     }
 
+    void prepareCar(CarDetails car, PreparedStatement carsStmt, String cleanLink, Connection conn, long particularitiesId) throws SQLException {
+        carsStmt.setString(1, cleanLink);
+        setNullableString(carsStmt, 2, car.getRegion());
+        setNullableInt(carsStmt, 3, car.getMileage());
+        setNullableInt(carsStmt, 4, car.getEurPrice());
+        Timestamp timestamp = parseRomanianDate(car.getUpdateDate());
+        if (timestamp == null) {
+            carsStmt.setNull(5, Types.TIMESTAMP);
+        } else {
+            carsStmt.setTimestamp(5, timestamp);
+        }
+        Integer adTypeId = getOrInsertLookup(conn, "ad_type", car.getAdType());
+        setNullableInt(carsStmt, 6, adTypeId);
+        carsStmt.setLong(7, particularitiesId);
+    }
 
-    private void setNullableString(PreparedStatement stmt, int index, String value) throws SQLException {
+    void prepareParticularities(CarDetails car, Connection conn, PreparedStatement particularitiesStmt) throws SQLException {
+        Integer wheelSideId = getOrInsertLookup(conn, "wheel_side", car.getWheelSide());
+        Integer nrOfSeatsId = getOrInsertLookup(conn, "nr_of_seats", car.getNrOfSeats());
+        Integer bodyId = getOrInsertLookup(conn, "body", car.getBody());
+        Integer nrOfDoorsId = getOrInsertLookup(conn, "nr_of_doors", car.getNrOfDoors());
+        Integer engineCapacityId = getOrInsertLookup(conn, "engine_capacity", car.getEngineCapacity());
+        Integer horsepowerId = getOrInsertLookup(conn, "horsepower", car.getHorsepower());
+        Integer petrolTypeId = getOrInsertLookup(conn, "petrol_type", car.getPetrolType());
+        Integer gearsTypeId = getOrInsertLookup(conn, "gears_type", car.getGearsType());
+        Integer tractionTypeId = getOrInsertLookup(conn, "traction_type", car.getTractionType());
+        Integer colorId = getOrInsertLookup(conn, "color", car.getColor());
+
+        setNullableString(particularitiesStmt, 1, car.getAuthor());
+        setNullableInt(particularitiesStmt, 2, car.getYearOfFabrication());
+        setNullableInt(particularitiesStmt, 3, wheelSideId);
+        setNullableInt(particularitiesStmt, 4, nrOfSeatsId);
+        setNullableInt(particularitiesStmt, 5, bodyId);
+        setNullableInt(particularitiesStmt, 6, nrOfDoorsId);
+        setNullableInt(particularitiesStmt, 7, engineCapacityId);
+        setNullableInt(particularitiesStmt, 8, horsepowerId);
+        setNullableInt(particularitiesStmt, 9, petrolTypeId);
+        setNullableInt(particularitiesStmt, 10, gearsTypeId);
+        setNullableInt(particularitiesStmt, 11, tractionTypeId);
+        setNullableInt(particularitiesStmt, 12, colorId);
+    }
+
+
+    void setNullableString(PreparedStatement stmt, int index, String value) throws SQLException {
         if (value == null) {
             stmt.setNull(index, java.sql.Types.VARCHAR);
         } else {
@@ -110,7 +118,7 @@ public class DatabaseManager {
         }
     }
 
-    private void setNullableInt(PreparedStatement stmt, int index, Integer value) throws SQLException {
+    void setNullableInt(PreparedStatement stmt, int index, Integer value) throws SQLException {
         if (value == null) {
             stmt.setNull(index, java.sql.Types.INTEGER);
         } else {
@@ -118,10 +126,23 @@ public class DatabaseManager {
         }
     }
 
-    private Timestamp parseRomanianDate(String dateStr) {
+    Timestamp parseRomanianDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return null;
 
-        String replaced = dateStr
+        String replaced = replaceDate(dateStr);
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH);
+            Date parsed = sdf.parse(replaced);
+            return new Timestamp(parsed.getTime());
+        } catch (ParseException e) {
+            logger.error("Failed to parse normalized date: {}", replaced);
+            return null;
+        }
+    }
+
+    String replaceDate(String dateStr) {
+        return dateStr
                 .replace("ian.", "Jan")
                 .replace("feb.", "Feb")
                 .replace("mar.", "Mar")
@@ -134,18 +155,9 @@ public class DatabaseManager {
                 .replace("oct.", "Oct")
                 .replace("nov.", "Nov")
                 .replace("dec.", "Dec");
-
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH);
-            Date parsed = sdf.parse(replaced);
-            return new Timestamp(parsed.getTime());
-        } catch (ParseException e) {
-            logger.error("Failed to parse normalized date: {}", replaced);
-            return null;
-        }
     }
 
-    private Integer getOrInsertLookup(Connection conn, String tableName, Object value) throws SQLException {
+    Integer getOrInsertLookup(Connection conn, String tableName, Object value) throws SQLException {
         if (value == null) return null;
 
         String stringValue = value.toString();
