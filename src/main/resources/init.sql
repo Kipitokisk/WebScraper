@@ -13,7 +13,6 @@ DROP TABLE IF EXISTS traction_type CASCADE;
 DROP TABLE IF EXISTS color CASCADE;
 DROP TABLE IF EXISTS ad_type CASCADE;
 
--- Recreate tables
 CREATE TABLE wheel_side (
                             id SERIAL PRIMARY KEY,
                             name TEXT UNIQUE NOT NULL

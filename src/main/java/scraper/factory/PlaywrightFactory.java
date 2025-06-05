@@ -1,4 +1,4 @@
-package factory;
+package scraper.factory;
 
 import com.microsoft.playwright.Page;
 

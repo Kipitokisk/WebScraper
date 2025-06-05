@@ -1,22 +1,22 @@
-package scraper;
+package scraper.logic;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import factory.PlaywrightFactory;
+import scraper.database.DatabaseManager;
+import scraper.factory.PlaywrightFactory;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import scraper.model.CarDetails;
 
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.*;
 
 public class Scraper {
-    private static final Logger logger = LoggerFactory.getLogger(Scraper.class);
-
+    private final Logger logger;
     private final String baseUrl;
     private final String carBrand;
     private final String carModel;
@@ -25,13 +25,14 @@ public class Scraper {
     private final PlaywrightFactory factory;
     private final DatabaseManager dbManager;
 
-    public Scraper(PlaywrightFactory factory, String baseUrl, String carBrand, String carModel, String carGeneration) {
+    public Scraper(PlaywrightFactory factory, String baseUrl, String carBrand, String carModel, String carGeneration, Logger logger, DatabaseManager databaseManager) {
         this.factory = factory;
         this.baseUrl = baseUrl;
         this.carBrand = carBrand;
         this.carModel = carModel;
         this.carGeneration = carGeneration;
-        this.dbManager = new DatabaseManager("jdbc:postgresql://playwright-postgres-db:5432/scraper_db", "postgres", "pass");
+        this.logger = logger;
+        this.dbManager = databaseManager;
     }
 
     public void scrape() throws SQLException {
@@ -50,30 +51,33 @@ public class Scraper {
         }
     }
 
-    private void navigateToPage() {
+    void navigateToPage() {
         page.navigate(baseUrl);
         page.getByText("Transport").click();
         page.getByText("Autoturisme").click();
         page.getByPlaceholder("Сăutare").fill(carBrand);
-        Locator modelDiv = page.locator("xpath=//div[contains(@class,'styles_checkbox__item__bOjAW')]//label[text()='" + carModel + "']/ancestor::div[contains(@class,'styles_checkbox__item__bOjAW')]");
-        modelDiv.locator("xpath=//div[contains(@class,'styles_children__H8mz2')]//label[text()='" + carGeneration + "']").click();
+        Locator modelDiv = page
+                .locator("xpath=//div[contains(@class,'styles_checkbox__item__bOjAW')]//label[text()='" + carModel + "']/ancestor::div[contains(@class,'styles_checkbox__item__bOjAW')]");
+        modelDiv
+                .locator("xpath=//div[contains(@class,'styles_children__H8mz2')]//label[text()='" + carGeneration + "']").click();
     }
 
-    private void processCurrentPage(List<CarDetails> finalProducts) {
+    void processCurrentPage(List<CarDetails> finalProducts) {
         page.waitForSelector("div.styles_adlist__3YsgA.styles_flex__9wOfD");
         String pageSource = page.content();
         Document doc = Jsoup.parse(pageSource);
-        Elements carElements = doc.select("div.styles_adlist__3YsgA.styles_flex__9wOfD div.AdPhoto_wrapper__gAOIH");
+        Elements carElements = doc
+                .select("div.styles_adlist__3YsgA.styles_flex__9wOfD div.AdPhoto_wrapper__gAOIH");
         for (Element carElement : carElements) {
             try {
                 extractCarDetails(carElement, finalProducts);
             } catch (Exception e) {
-                logger.error("Error processing car element: {}", e.getMessage());
+                logger.error("Error processing car element, skipping to next");
             }
         }
     }
 
-    private void processAllPages(List<CarDetails> finalProducts) {
+    void processAllPages(List<CarDetails> finalProducts) {
         while (true) {
             processCurrentPage(finalProducts);
             Locator nextButton = page.getByText("›");
@@ -102,6 +106,9 @@ public class Scraper {
             Document doc = Jsoup.connect(baseUrl + carLink).get();
 
             String title = getTitle(doc);
+            if (!title.contains(carBrand + " " + carModel)) {
+                return null;
+            }
 
             Elements items = doc.select("div.styles_aside__0m8KW");
 
@@ -148,9 +155,25 @@ public class Scraper {
                 return null;
             }
 
-            return new CarDetails(baseUrl + carLink, title + " " + generation, eurPrice, mileage,
-                    updateDate, adType, region, author, yearOfFabrication, wheelSide, nrOfSeats, body,
-                    nrOfDoors, engineCapacity, horsepower, petrolType, gearsType, tractionType, color);
+            return new CarDetails.Builder().link(baseUrl + carLink)
+                    .name(title + " " + generation)
+                    .eurPrice(eurPrice)
+                    .mileage(mileage)
+                    .updateDate(updateDate)
+                    .adType(adType)
+                    .region(region)
+                    .author(author)
+                    .yearOfFabrication(yearOfFabrication)
+                    .wheelSide(wheelSide)
+                    .nrOfSeats(nrOfSeats)
+                    .body(body)
+                    .nrOfDoors(nrOfDoors)
+                    .engineCapacity(engineCapacity)
+                    .horsepower(horsepower)
+                    .petrolType(petrolType)
+                    .gearsType(gearsType)
+                    .tractionType(tractionType)
+                    .color(color).build();
 
         } catch (IOException e) {
             logger.error("Error fetching car details page: {}{} - {}",baseUrl, carLink, e.getMessage());
@@ -175,7 +198,8 @@ public class Scraper {
         Elements generalitiesItems = doc.select(cssQuery);
         for (Element item : generalitiesItems) {
             Element keyElement = item.selectFirst("span.styles_group__key__uRhnQ");
-            Element valueElement = item.selectFirst("span.styles_group__value__XN7OI, a.styles_group__value__XN7OI");
+            Element valueElement = item
+                    .selectFirst("span.styles_group__value__XN7OI, a.styles_group__value__XN7OI");
             if (keyElement != null && valueElement != null) {
                 map.put(keyElement.text(), valueElement.text());
             }
@@ -189,7 +213,7 @@ public class Scraper {
                 result = Integer.parseInt(eurPriceText.replaceAll("\\D", ""));
             }
         } catch (NumberFormatException e) {
-            throw new NumberFormatException(e.getMessage());
+            throw new NumberFormatException("Price not valid, skipping car");
         }
         return result;
     }
@@ -233,7 +257,7 @@ public class Scraper {
 
         System.out.println("Max price: " + maxEntry.getEurPrice() + " (Link: " + maxEntry.getLink() + ")");
         System.out.println("Min price: " + minEntry.getEurPrice() + " (Link: " + minEntry.getLink() + ")");
-        System.out.printf("Average price: %.2f%n", avgPrice);
+        System.out.printf(Locale.US,"Average price: %.2f%n", avgPrice);
     }
 
     void checkFinalProducts(List<CarDetails> finalProducts) {
@@ -244,8 +268,10 @@ public class Scraper {
 
     double getAvgPrice(List<CarDetails> finalProducts, int minMileage, int maxMileage) {
         return finalProducts.stream()
-                .filter(c -> c.getMileage() != null && c.getEurPrice() != null && c.getMileage() > minMileage &&
-                        c.getMileage() < maxMileage && c.getAdType().equals("Vând"))
+                .filter(c -> c.getMileage() != null && c.getEurPrice() != null &&
+                        c.getMileage() > minMileage &&
+                        c.getMileage() < maxMileage &&
+                        c.getAdType().equals("Vând"))
                 .mapToInt(CarDetails::getEurPrice)
                 .average()
                 .orElseThrow(() -> new RuntimeException("Cannot compute average - list is empty"));
@@ -265,7 +291,7 @@ public class Scraper {
                 .orElseThrow(() -> new RuntimeException("There is no max price"));
     }
 
-    private void saveResults(List<CarDetails> finalProducts) throws SQLException{
+    void saveResults(List<CarDetails> finalProducts) throws SQLException{
         if (finalProducts.isEmpty()) {
             logger.info("No products found.");
             return;
@@ -273,5 +299,13 @@ public class Scraper {
 
         dbManager.saveCars(finalProducts);
         printResults(finalProducts);
+    }
+
+    public Page getPage() {
+        return page;
+    }
+
+    public void setPage(Page page) {
+        this.page = page;
     }
 }

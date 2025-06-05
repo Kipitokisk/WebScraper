@@ -1,4 +1,4 @@
-package factory;
+package scraper.factory;
 
 import com.microsoft.playwright.*;
 
@@ -9,7 +9,7 @@ public class FirefoxPageFactory implements PlaywrightFactory{
     public FirefoxPageFactory() {
         this.playwright = Playwright.create();
         BrowserType.LaunchOptions launchOptions = new BrowserType.LaunchOptions()
-                .setHeadless(false)
+                .setHeadless(true)
                 .setChannel("firefox");
         this.browser = playwright.firefox().launch(launchOptions);
     }
