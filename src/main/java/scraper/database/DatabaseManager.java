@@ -2,6 +2,7 @@ package scraper.database;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scraper.logic.DatabaseManagerHelper;
 import scraper.model.CarDetails;
 
 import java.sql.*;
@@ -16,6 +17,7 @@ public class DatabaseManager {
     private final String dbUrl;
     private final String dbUser;
     private final String dbPassword;
+    private final DatabaseManagerHelper dbHelper = new DatabaseManagerHelper();
 
     public DatabaseManager(String dbUrl, String dbUser, String dbPassword) {
         this.dbUrl = dbUrl;
@@ -129,7 +131,7 @@ public class DatabaseManager {
     Timestamp parseRomanianDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return null;
 
-        String replaced = replaceDate(dateStr);
+        String replaced = dbHelper.replaceDate(dateStr);
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH);
@@ -139,22 +141,6 @@ public class DatabaseManager {
             logger.error("Failed to parse normalized date: {}", replaced);
             return null;
         }
-    }
-
-    String replaceDate(String dateStr) {
-        return dateStr
-                .replace("ian.", "Jan")
-                .replace("feb.", "Feb")
-                .replace("mar.", "Mar")
-                .replace("apr.", "Apr")
-                .replace("mai.", "May")
-                .replace("iun.", "Jun")
-                .replace("iul.", "Jul")
-                .replace("aug.", "Aug")
-                .replace("sept.", "Sep")
-                .replace("oct.", "Oct")
-                .replace("nov.", "Nov")
-                .replace("dec.", "Dec");
     }
 
     Integer getOrInsertLookup(Connection conn, String tableName, Object value) throws SQLException {

@@ -297,20 +297,6 @@ class DatabaseManagerIT {
     }
 
     @Test
-    void testReplaceDate_WithAllMonths_Success() {
-        String[] romanianMonths = {"ian.", "feb.", "mar.", "apr.", "mai.", "iun.",
-                "iul.", "aug.", "sept.", "oct.", "nov.", "dec."};
-        String[] englishMonths = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-
-        for (int i = 0; i < romanianMonths.length; i++) {
-            String romanianDate = romanianMonths[i];
-            String englishDate = databaseManager.replaceDate(romanianDate);
-            assertEquals(englishMonths[i], englishDate);
-        }
-    }
-
-    @Test
     void testParseRomanianDate_WithNullValue() {
         Timestamp result = databaseManager.parseRomanianDate(null);
         assertNull(result);
