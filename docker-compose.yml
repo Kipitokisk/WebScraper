@@ -12,8 +12,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - selenium_pgdata:/var/lib/postgresql/data
+      - ./src/main/resources/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   scraper-app:
     build:
@@ -23,7 +23,7 @@ services:
     depends_on:
       - db
     environment:
-      DATASOURCE_URL: jdbc:postgresql://db:5432/scraper_db
+      DATASOURCE_URL: jdbc:postgresql://db:5432/selenium_scraper_db
       DATASOURCE_USERNAME: postgres
       DATASOURCE_PASSWORD: pass
       FIREFOX_BIN: /usr/bin/firefox-esr
@@ -38,4 +38,4 @@ services:
       - /dev/shm:/dev/shm
 
 volumes:
-  pgdata:
+  selenium_pgdata:

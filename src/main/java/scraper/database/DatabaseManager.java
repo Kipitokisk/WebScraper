@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Locale;
 
 public class DatabaseManager {
-    private final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
     private final String dbUrl;
     private final String dbUser;
     private final String dbPassword;

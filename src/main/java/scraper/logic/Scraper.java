@@ -17,6 +17,10 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class Scraper {
     private final String baseUrl;
@@ -124,24 +128,42 @@ public class Scraper {
                 String pageSource = driver.getPageSource();
                 assert pageSource != null;
                 Document doc = Jsoup.parse(pageSource);
+
                 Elements carElements = doc.select("div.styles_adlist__3YsgA.styles_flex__9wOfD div.AdPhoto_wrapper__gAOIH");
 
-                extractCarElements(finalProducts, carElements);
+                List<String> carLinks = new ArrayList<>();
+                for (Element carElement : carElements) {
+                    Element linkEl = carElement.selectFirst("a.AdPhoto_info__link__OwhY6");
+                    if (linkEl != null) {
+                        carLinks.add(linkEl.attr("href"));
+                    }
+                }
+
+                ExecutorService executor = Executors.newFixedThreadPool(20);
+                List<Future<CarDetails>> futures = new ArrayList<>();
+
+                for (String carLink : carLinks) {
+                    futures.add(executor.submit(() -> extractDetailedCarInfo(carLink)));
+                }
+
+                for (Future<CarDetails> future : futures) {
+                    try {
+                        CarDetails details = future.get();
+                        if (details != null) {
+                            finalProducts.add(details);
+                        }
+                    } catch (Exception e) {
+                        logger.error("Error processing car detail future", e);
+                    }
+                }
+
+                executor.shutdown();
+                executor.awaitTermination(1, TimeUnit.MINUTES);
 
                 break;
             } catch (Exception e) {
                 logger.error("Error processing page, retrying... ({}/{})", (attempts + 1), maxRetries);
                 attempts++;
-            }
-        }
-    }
-
-    void extractCarElements(List<CarDetails> finalProducts, Elements carElements) {
-        for (Element carElement : carElements) {
-            try {
-                extractCarDetails(carElement, finalProducts);
-            } catch (Exception e) {
-                logger.error("Error processing car element: {}", e.getMessage());
             }
         }
     }
@@ -160,9 +182,17 @@ public class Scraper {
 
     CarDetails extractDetailedCarInfo(String carLink) {
         try {
-            Document doc = Jsoup.connect(baseUrl + carLink).get();
+            int delayMillis = 1000 + new Random().nextInt(2000);
+            Thread.sleep(delayMillis);
+
+            Document doc = Jsoup.connect(baseUrl + carLink)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+                    .get();
 
             String title = getTitle(doc);
+            if (!title.contains(carBrand + " " + carModel)) {
+                return null;
+            }
 
             Elements items = doc.select("div.styles_aside__0m8KW");
 
@@ -171,6 +201,10 @@ public class Scraper {
             String adType = getAdInfo(items, "p.styles_type___J9Dy");
 
             String eurPriceText = getAdInfo(items, "span.styles_sidebar__main__DaXQC");
+            if (eurPriceText == null) {
+                logger.warn("eurPriceText is null for link: {}", baseUrl + carLink);
+                return null;
+            }
             Integer eurPrice = getEurPrice(eurPriceText);
 
             String region = getString(items, "span.styles_address__text__duvKg");
@@ -233,6 +267,8 @@ public class Scraper {
         } catch (IOException e) {
             logger.error("Error fetching car details page: {}{} - {}",baseUrl, carLink, e.getMessage());
             return null;
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -262,6 +298,9 @@ public class Scraper {
 
     Integer getEurPrice(String eurPriceText) {
         Integer result = null;
+        if (eurPriceText == null) {
+            throw new NullPointerException("Price empty.");
+        }
         try {
             if (eurPriceText.contains("€")) {
                 result = Integer.parseInt(eurPriceText.replaceAll("\\D", ""));

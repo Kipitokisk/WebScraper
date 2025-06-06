@@ -6,18 +6,15 @@ COPY src ./src
 
 RUN mvn clean package
 
-FROM openjdk:17-jdk-slim AS final
-WORKDIR /app
-
-COPY --from=builder /app/target/WebScraper-1.0-SNAPSHOT.jar /app/app.jar
-
 FROM openjdk:17-jdk-slim AS selenium
+
 USER root
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     firefox-esr \
     wget \
+    unzip \
     ca-certificates \
     libx11-xcb1 \
     libglib2.0-0 \
@@ -27,16 +24,28 @@ RUN apt-get update && apt-get install -y \
     libxrandr2 \
     libasound2 \
     libgtk-3-0 \
-    && rm -rf /var/lib/apt/lists/*
+    fonts-liberation \
+    libappindicator3-1 \
+    xdg-utils \
+    chromium \
+    chromium-driver \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN CHROMEDRIVER_URL="https://storage.googleapis.com/chrome-for-testing-public/120.0.6099.109/linux64/chromedriver-linux64.zip" && \
+    wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL" && \
+    unzip /tmp/chromedriver.zip -d /tmp/ && \
+    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm -rf /tmp/chromedriver*
 
 RUN GECKO_DRIVER_VERSION=v0.32.0 && \
-    wget https://github.com/mozilla/geckodriver/releases/download/${GECKO_DRIVER_VERSION}/geckodriver-${GECKO_DRIVER_VERSION}-linux64.tar.gz && \
-    tar -xvzf geckodriver-${GECKO_DRIVER_VERSION}-linux64.tar.gz && \
-    mv geckodriver /usr/local/bin/ && \
-    rm geckodriver-${GECKO_DRIVER_VERSION}-linux64.tar.gz
+    wget -O /tmp/geckodriver.tar.gz https://github.com/mozilla/geckodriver/releases/download/${GECKO_DRIVER_VERSION}/geckodriver-${GECKO_DRIVER_VERSION}-linux64.tar.gz && \
+    tar -xzf /tmp/geckodriver.tar.gz -C /tmp/ && \
+    mv /tmp/geckodriver /usr/local/bin/ && \
+    chmod +x /usr/local/bin/geckodriver && \
+    rm /tmp/geckodriver.tar.gz
 
-ENV FIREFOX_BIN=/usr/bin/firefox-esr
-
-COPY --from=final /app/app.jar /app/app.jar
+COPY --from=builder /app/target/WebScraper-1.0-SNAPSHOT.jar /app/app.jar
 
 CMD ["java", "-jar", "/app/app.jar"]

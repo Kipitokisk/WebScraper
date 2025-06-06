@@ -1,5 +1,6 @@
 package scraper.logic;
 
+import org.jsoup.Connection;
 import org.jsoup.nodes.Element;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.*;
 class ScraperTest {
     WebDriverFactory webDriverFactory;
     DatabaseManager databaseManagerMock;
+    Connection connectionMock;
     Logger loggerMock;
 
     private Scraper scraper;
@@ -38,6 +40,7 @@ class ScraperTest {
     void setUp() {
         webDriverFactory = mock(WebDriverFactory.class);
         databaseManagerMock = mock(DatabaseManager.class);
+        connectionMock = mock(Connection.class);
         loggerMock = mock(Logger.class);
         scraper = spy(new Scraper(webDriverFactory, "https://999.md", "Renault", "Megane", "III (2008 - 2016)", databaseManagerMock, loggerMock));
         System.setOut(new PrintStream(outContent));
@@ -96,8 +99,9 @@ class ScraperTest {
         Document doc = Jsoup.parse(html);
 
         try (var jsoupMock = mockStatic(Jsoup.class)) {
-            jsoupMock.when(() -> Jsoup.connect(anyString())).thenReturn(mock(org.jsoup.Connection.class));
-            when(Jsoup.connect(anyString()).get()).thenReturn(doc);
+            when(Jsoup.connect(anyString())).thenReturn(connectionMock);
+            when(connectionMock.userAgent(anyString())).thenReturn(connectionMock);
+            when(connectionMock.get()).thenReturn(doc);
 
             CarDetails result = scraper.extractDetailedCarInfo(carLink);
 
@@ -141,8 +145,9 @@ class ScraperTest {
 
         try (var jsoupMock = mockStatic(Jsoup.class)) {
             jsoupMock.when(() -> Jsoup.connect(anyString())).thenReturn(mock(org.jsoup.Connection.class));
-            when(Jsoup.connect(anyString()).get()).thenReturn(doc);
-
+            when(Jsoup.connect(anyString())).thenReturn(connectionMock);
+            when(connectionMock.userAgent(anyString())).thenReturn(connectionMock);
+            when(connectionMock.get()).thenReturn(doc);
             CarDetails result = scraper.extractDetailedCarInfo(carLink);
 
             assertNull(result, "Should return null for invalid price");
@@ -165,9 +170,9 @@ class ScraperTest {
         Document doc = Jsoup.parse(html);
 
         try (var jsoupMock = mockStatic(Jsoup.class)) {
-            jsoupMock.when(() -> Jsoup.connect(anyString())).thenReturn(mock(org.jsoup.Connection.class));
-            when(Jsoup.connect(anyString()).get()).thenReturn(doc);
-
+            when(Jsoup.connect(anyString())).thenReturn(connectionMock);
+            when(connectionMock.userAgent(anyString())).thenReturn(connectionMock);
+            when(connectionMock.get()).thenReturn(doc);
             CarDetails result = scraper.extractDetailedCarInfo(carLink);
 
             assertNull(result, "Should return null for invalid mileage");
@@ -190,9 +195,9 @@ class ScraperTest {
         Document doc = Jsoup.parse(html);
 
         try (var jsoupMock = mockStatic(Jsoup.class)) {
-            jsoupMock.when(() -> Jsoup.connect(anyString())).thenReturn(mock(org.jsoup.Connection.class));
-            when(Jsoup.connect(anyString()).get()).thenReturn(doc);
-
+            when(Jsoup.connect(anyString())).thenReturn(connectionMock);
+            when(connectionMock.userAgent(anyString())).thenReturn(connectionMock);
+            when(connectionMock.get()).thenReturn(doc);
             CarDetails result = scraper.extractDetailedCarInfo(carLink);
 
             assertNull(result, "Should return null for invalid title");
