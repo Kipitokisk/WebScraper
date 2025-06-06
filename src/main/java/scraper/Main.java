@@ -8,10 +8,11 @@ import scraper.factory.FirefoxDriverFactory;
 import scraper.factory.WebDriverFactory;
 import scraper.logic.Scraper;
 
+import java.net.MalformedURLException;
 import java.sql.SQLException;
 
 public class Main {
-    public static void main(String[] args) throws SQLException {
+    public static void main(String[] args) throws SQLException, MalformedURLException {
         String baseUrl = System.getenv("BASE_URL");
         String carBrand = System.getenv("CAR_BRAND");
         String carModel = System.getenv("CAR_MODEL");

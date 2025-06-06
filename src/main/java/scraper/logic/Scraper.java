@@ -14,6 +14,7 @@ import scraper.database.DatabaseManager;
 import scraper.model.CarDetails;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.*;
@@ -45,7 +46,7 @@ public class Scraper {
         this.logger = logger;
     }
 
-    public void scrape() throws SQLException {
+    public void scrape() throws SQLException, MalformedURLException {
         driver = setupDriver();
         wait = new WebDriverWait(driver, Duration.ofSeconds(4));
         js = (JavascriptExecutor) driver;
@@ -60,7 +61,14 @@ public class Scraper {
         }
     }
 
-    WebDriver setupDriver() {
+    WebDriver setupDriver() throws MalformedURLException {
+        try {
+            System.out.println("Waiting for Selenium services to start");
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Startup delay interrupted", e);
+        }
         driver = factory.createWebDriver();
         Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
         return driver;

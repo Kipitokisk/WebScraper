@@ -15,23 +15,48 @@ services:
       - selenium_pgdata:/var/lib/postgresql/data
       - ./src/main/resources/init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  selenium-chrome:
+    image: selenium/standalone-chrome:latest
+    container_name: selenium-chrome
+    ports:
+      - "4444:4444"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:4444/status" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  selenium-firefox:
+    image: selenium/standalone-firefox:latest
+    container_name: selenium-firefox
+    ports:
+      - "4445:4444"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:4444/status" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   scraper-app:
     build:
       context: .
-      target: selenium
     container_name: selenium-webscraper-app
     depends_on:
-      - db
+      selenium-chrome:
+        condition: service_healthy
+      selenium-firefox:
+        condition: service_healthy
     environment:
       DATASOURCE_URL: jdbc:postgresql://db:5432/selenium_scraper_db
       DATASOURCE_USERNAME: postgres
       DATASOURCE_PASSWORD: pass
-      FIREFOX_BIN: /usr/bin/firefox-esr
       BASE_URL: https://999.md
       CAR_BRAND: Renault
       CAR_MODEL: Megane
       CAR_GENERATION: III (2008 - 2016)
       BROWSER_CHOICE: Firefox
+      SELENIUM_CHROME_URL: http://selenium-chrome:4444/wd/hub
+      SELENIUM_FIREFOX_URL: http://selenium-firefox:4444/wd/hub
     ports:
       - "8080:8080"
     volumes:
