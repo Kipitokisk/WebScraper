@@ -1,4 +1,9 @@
-package scraper;
+package scraper.database;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import scraper.logic.DatabaseManagerHelper;
+import scraper.model.CarDetails;
 
 import java.sql.*;
 import java.text.ParseException;
@@ -8,9 +13,11 @@ import java.util.List;
 import java.util.Locale;
 
 public class DatabaseManager {
+    private final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
     private final String dbUrl;
     private final String dbUser;
     private final String dbPassword;
+    private final DatabaseManagerHelper databaseManagerHelper = new DatabaseManagerHelper();
 
     public DatabaseManager(String dbUrl, String dbUser, String dbPassword) {
         this.dbUrl = dbUrl;
@@ -75,7 +82,7 @@ public class DatabaseManager {
                         setNullableString(carsStmt, 2, car.getRegion());
                         setNullableInt(carsStmt, 3, car.getMileage());
                         setNullableInt(carsStmt, 4, car.getEurPrice());
-                        Timestamp timestamp = parseRomanianDate(car.getUpdateDate());
+                        Timestamp timestamp = databaseManagerHelper.parseRomanianDate(car.getUpdateDate());
                         if (timestamp == null) {
                             carsStmt.setNull(5, Types.TIMESTAMP);
                         } else {
@@ -97,7 +104,7 @@ public class DatabaseManager {
         }
     }
 
-    private void setNullableString(PreparedStatement stmt, int index, String value) throws SQLException {
+    void setNullableString(PreparedStatement stmt, int index, String value) throws SQLException {
         if (value == null) {
             stmt.setNull(index, java.sql.Types.VARCHAR);
         } else {
@@ -105,7 +112,7 @@ public class DatabaseManager {
         }
     }
 
-    private void setNullableInt(PreparedStatement stmt, int index, Integer value) throws SQLException {
+    void setNullableInt(PreparedStatement stmt, int index, Integer value) throws SQLException {
         if (value == null) {
             stmt.setNull(index, java.sql.Types.INTEGER);
         } else {
@@ -113,34 +120,7 @@ public class DatabaseManager {
         }
     }
 
-    private Timestamp parseRomanianDate(String dateStr) {
-        if (dateStr == null || dateStr.isBlank()) return null;
-
-        String replaced = dateStr
-                .replace("ian.", "Jan")
-                .replace("feb.", "Feb")
-                .replace("mar.", "Mar")
-                .replace("apr.", "Apr")
-                .replace("mai.", "May")
-                .replace("iun.", "Jun")
-                .replace("iul.", "Jul")
-                .replace("aug.", "Aug")
-                .replace("sept.", "Sep")
-                .replace("oct.", "Oct")
-                .replace("nov.", "Nov")
-                .replace("dec.", "Dec");
-
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH);
-            Date parsed = sdf.parse(replaced);
-            return new Timestamp(parsed.getTime());
-        } catch (ParseException e) {
-            System.err.println("Failed to parse normalized date: " + replaced);
-            return null;
-        }
-    }
-
-    private Integer getOrInsertLookup(Connection conn, String tableName, Object value) throws SQLException {
+    Integer getOrInsertLookup(Connection conn, String tableName, Object value) throws SQLException {
         if (value == null) return null;
 
         String stringValue = value.toString();

@@ -1,6 +1,6 @@
-package scraper;
+package scraper.logic;
 
-import factory.WebDriverFactory;
+import scraper.factory.WebDriverFactory;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -10,7 +10,8 @@ import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import scraper.database.DatabaseManager;
+import scraper.model.CarDetails;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -18,7 +19,6 @@ import java.time.Duration;
 import java.util.*;
 
 public class Scraper {
-    private static final Logger logger = LoggerFactory.getLogger(Scraper.class);
     private final String baseUrl;
     private final String carBrand;
     private final String carModel;
@@ -28,15 +28,17 @@ public class Scraper {
     private JavascriptExecutor js;
     private final WebDriverFactory factory;
     private final DatabaseManager dbManager;
+    private final Logger logger;
     private static final String SCRIPT = "arguments[0].click();";
 
-    public Scraper(WebDriverFactory factory, String baseUrl, String carBrand, String carModel, String carGeneration) {
+    public Scraper(WebDriverFactory factory, String baseUrl, String carBrand, String carModel, String carGeneration, DatabaseManager databaseManager, Logger logger) {
         this.factory = factory;
         this.baseUrl = baseUrl;
         this.carBrand = carBrand;
         this.carModel = carModel;
         this.carGeneration = carGeneration;
-        this.dbManager = new DatabaseManager("jdbc:postgresql://selenium-postgres-db:5432/scraper_db", "postgres", "pass");
+        this.dbManager = databaseManager;
+        this.logger = logger;
     }
 
     public void scrape() throws SQLException {
@@ -54,13 +56,13 @@ public class Scraper {
         }
     }
 
-    private WebDriver setupDriver() {
+    WebDriver setupDriver() {
         driver = factory.createWebDriver();
         Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
         return driver;
     }
 
-    private void navigateToSearchPage() {
+    void navigateToSearchPage() {
         driver.get(baseUrl);
 
         WebElement transportLink = driver.findElement(By.cssSelector("a[data-category=\"658\"]"));
@@ -77,7 +79,7 @@ public class Scraper {
         searchInput.sendKeys(carBrand);
     }
 
-    private void selectCarModelAndGeneration() {
+    void selectCarModelAndGeneration() {
         WebElement modelDiv = wait.until(ExpectedConditions.visibilityOfElementLocated(
                 By.xpath("//div[contains(@class,'styles_checkbox__item__bOjAW')]//label[text()='" + carModel + "']/ancestor::div[contains(@class,'styles_checkbox__item__bOjAW')]")
         ));
@@ -91,7 +93,7 @@ public class Scraper {
         }
     }
 
-    private void processAllPages(List<CarDetails> finalProducts) {
+    void processAllPages(List<CarDetails> finalProducts) {
         boolean hasNextPage = true;
         while (hasNextPage) {
             processCurrentPage(finalProducts);
@@ -113,7 +115,7 @@ public class Scraper {
         }
     }
 
-    private void processCurrentPage(List<CarDetails> finalProducts) {
+    void processCurrentPage(List<CarDetails> finalProducts) {
         int maxRetries = 3;
         int attempts = 0;
 
@@ -134,7 +136,7 @@ public class Scraper {
         }
     }
 
-    private void extractCarElements(List<CarDetails> finalProducts, Elements carElements) {
+    void extractCarElements(List<CarDetails> finalProducts, Elements carElements) {
         for (Element carElement : carElements) {
             try {
                 extractCarDetails(carElement, finalProducts);
@@ -207,9 +209,26 @@ public class Scraper {
                 return null;
             }
 
-            return new CarDetails(baseUrl + carLink, title + " " + generation, eurPrice, mileage,
-                    updateDate, adType, region, author, yearOfFabrication, wheelSide, nrOfSeats, body,
-                    nrOfDoors, engineCapacity, horsepower, petrolType, gearsType, tractionType, color);
+            return new CarDetails.Builder().link(baseUrl + carLink)
+                    .name(title + " " + generation)
+                    .eurPrice(eurPrice)
+                    .mileage(mileage)
+                    .updateDate(updateDate)
+                    .adType(adType)
+                    .region(region)
+                    .author(author)
+                    .yearOfFabrication(yearOfFabrication)
+                    .wheelSide(wheelSide)
+                    .nrOfSeats(nrOfSeats)
+                    .body(body)
+                    .nrOfDoors(nrOfDoors)
+                    .engineCapacity(engineCapacity)
+                    .horsepower(horsepower)
+                    .petrolType(petrolType)
+                    .gearsType(gearsType)
+                    .tractionType(tractionType)
+                    .color(color)
+                    .build();
 
         } catch (IOException e) {
             logger.error("Error fetching car details page: {}{} - {}",baseUrl, carLink, e.getMessage());
@@ -292,7 +311,7 @@ public class Scraper {
 
         System.out.println("Max price: " + maxEntry.getEurPrice() + " (Link: " + maxEntry.getLink() + ")");
         System.out.println("Min price: " + minEntry.getEurPrice() + " (Link: " + minEntry.getLink() + ")");
-        System.out.printf("Average price: %.2f%n", avgPrice);
+        System.out.printf(Locale.US,"Average price: %.2f%n", avgPrice);
     }
 
     void checkFinalProducts(List<CarDetails> finalProducts) {
@@ -324,7 +343,7 @@ public class Scraper {
                 .orElseThrow(() -> new RuntimeException("There is no max price"));
     }
 
-    private void saveResults(List<CarDetails> finalProducts) throws SQLException{
+    void saveResults(List<CarDetails> finalProducts) throws SQLException{
         if (finalProducts.isEmpty()) {
             logger.info("No products found.");
             return;
