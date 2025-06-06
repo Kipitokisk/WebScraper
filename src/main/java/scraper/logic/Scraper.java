@@ -217,10 +217,26 @@ public class Scraper {
                 return null;
             }
 
-            return new CarDetails(baseUrl + carLink, title + " " + generation, eurPrice, mileage,
-                    updateDate, adType, region, author, yearOfFabrication, wheelSide, nrOfSeats, body,
-                    nrOfDoors, engineCapacity, horsepower, petrolType, gearsType, tractionType, color);
-
+            return new CarDetails.Builder().link(baseUrl + carLink)
+                    .name(title + " " + generation)
+                    .eurPrice(eurPrice)
+                    .mileage(mileage)
+                    .updateDate(updateDate)
+                    .adType(adType)
+                    .region(region)
+                    .author(author)
+                    .yearOfFabrication(yearOfFabrication)
+                    .wheelSide(wheelSide)
+                    .nrOfSeats(nrOfSeats)
+                    .body(body)
+                    .nrOfDoors(nrOfDoors)
+                    .engineCapacity(engineCapacity)
+                    .horsepower(horsepower)
+                    .petrolType(petrolType)
+                    .gearsType(gearsType)
+                    .tractionType(tractionType)
+                    .color(color)
+                    .build();
         } catch (IOException e) {
             logger.error("Error fetching car details page, skipping to the next");
             return null;

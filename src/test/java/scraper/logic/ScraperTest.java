@@ -208,14 +208,44 @@ class ScraperTest {
     @Test
     void testPrintResults_Success() {
         List<CarDetails> finalProducts = new ArrayList<>();
-        finalProducts.add(new CarDetails("https://999.md/car1", null, 50, 210000,
-                null, "Vând", null, null, null,
-                null, null, null, null, null,
-                null, null, null, null, null));
-        finalProducts.add(new CarDetails("https://999.md/car2", null, 100, 210000,
-                null, "Vând", null, null, null,
-                null, null, null, null, null,
-                null, null, null, null, null));
+        finalProducts.add(new CarDetails.Builder().link("https://999.md/car1")
+                .name(null)
+                .eurPrice(50)
+                .mileage(210000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build());
+        finalProducts.add(new CarDetails.Builder().link("https://999.md/car2")
+                .name(null)
+                .eurPrice(100)
+                .mileage(210000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build());
 
         scraper.printResults(finalProducts);
         String expectedOutput = String.format("Max price: 100 (Link: https://999.md/car2)%n" +
@@ -416,12 +446,44 @@ class ScraperTest {
 
     @Test
     void testGetAvgPrice_MinMaxEntry_Success() {
-        CarDetails car1 = new CarDetails(null, null, 2000, 100000, null,
-                "Vând", null, null, null, null, null, null,
-                null, null, null, null, null, null,null);
-        CarDetails car2 = new CarDetails(null, null, 8000, 100000, null,
-                "Vând", null, null, null, null, null, null,
-                null, null, null, null, null, null,null);
+        CarDetails car1 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(2000)
+                .mileage(100000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
+        CarDetails car2 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(8000)
+                .mileage(100000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
         List<CarDetails> list = List.of(car1, car2);
         assertEquals(5000, scraper.getAvgPrice(list, 50000, 200000));
         assertEquals(car1, scraper.getMinEntry(list));
@@ -430,38 +492,134 @@ class ScraperTest {
 
     @Test
     void testGetAvgPrice_MinMaxEntry_OneBuyAd_Success() {
-        CarDetails car1 = new CarDetails(null, null, 2000, 100000, null,
-                "Cumpăr", null, null, null, null, null, null,
-                null, null, null, null, null, null,null);
-        CarDetails car2 = new CarDetails(null, null, 8000, 100000, null,
-                "Vând", null, null, null, null, null, null,
-                null, null, null, null, null, null,null);
+        CarDetails car1 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(2000)
+                .mileage(100000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
+        CarDetails car2 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(8000)
+                .mileage(100000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
         List<CarDetails> list = List.of(car1, car2);
-        assertEquals(8000, scraper.getAvgPrice(list, 50000, 200000));
-        assertEquals(car2, scraper.getMinEntry(list));
+        assertEquals(5000, scraper.getAvgPrice(list, 50000, 200000));
+        assertEquals(car1, scraper.getMinEntry(list));
         assertEquals(car2, scraper.getMaxEntry(list));
     }
 
     @Test
     void testGetAvgPrice_InvalidMileage() {
-        CarDetails car1 = new CarDetails(null, null, 2000, 300000, null,
-                "Vând", null, null, null, null, null, null,
-                null, null, null, null, null, null,null);
-        CarDetails car2 = new CarDetails(null, null, 8000, 100000, null,
-                "Vând", null, null, null, null, null, null,
-                null, null, null, null, null, null,null);
+        CarDetails car1 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(2000)
+                .mileage(300000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
+        CarDetails car2 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(8000)
+                .mileage(100000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
         List<CarDetails> list = List.of(car1, car2);
         assertEquals(8000, scraper.getAvgPrice(list, 50000, 200000));
     }
 
     @Test
     void testGetAvgPrice_MinMaxEntry_BuyAds_ThrowsRuntimeException() {
-        CarDetails car1 = new CarDetails(null, null, 2000, 100000, null,
-                "Cumpăr", null, null, null, null, null, null,
-                null, null, null, null, null, null,null);
-        CarDetails car2 = new CarDetails(null, null, 8000, 100000, null,
-                "Cumpăr", null, null, null, null, null, null,
-                null, null, null, null, null, null,null);
+        CarDetails car1 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(2000)
+                .mileage(100000)
+                .updateDate(null)
+                .adType("Cumpăr")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
+        CarDetails car2 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(8000)
+                .mileage(100000)
+                .updateDate(null)
+                .adType("Cumpăr")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
         List<CarDetails> list = List.of(car1, car2);
         assertThrows(RuntimeException.class, () -> scraper.getAvgPrice(list, 50000, 200000));
         assertThrows(RuntimeException.class, () -> scraper.getMinEntry(list));
@@ -516,15 +674,47 @@ class ScraperTest {
         Future<CarDetails> mockFuture1 = mock(Future.class);
         Future<CarDetails> mockFuture2 = mock(Future.class);
 
-        CarDetails mockCar1 = new CarDetails("https://999.md/ro/ad1", "Test Car 1", 5000, 100000,
-                "2023-01-01", "Vând", "Chisinau", "TestUser1", 2020,
-                "Stânga", 5, "Sedan", 4, 1600, 120, "Benzină", "Manual", "Față", "Roșu");
-        CarDetails mockCar2 = new CarDetails("https://999.md/ro/ad2", "Test Car 2", 7000, 80000,
-                "2023-01-02", "Vând", "Balti", "TestUser2", 2019,
-                "Stânga", 5, "Hatchback", 4, 1400, 100, "Benzină", "Automat", "Față", "Albastru");
+        CarDetails car1 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(2000)
+                .mileage(300000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
+        CarDetails car2 = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(8000)
+                .mileage(100000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
 
-        when(mockFuture1.get()).thenReturn(mockCar1);
-        when(mockFuture2.get()).thenReturn(mockCar2);
+        when(mockFuture1.get()).thenReturn(car1);
+        when(mockFuture2.get()).thenReturn(car2);
 
         futures.add(mockFuture1);
         futures.add(mockFuture2);
@@ -532,8 +722,8 @@ class ScraperTest {
         scraper.fetchCarDetails(finalProducts, futures);
 
         assertEquals(2, finalProducts.size(), "Should have 2 cars in final products");
-        assertTrue(finalProducts.contains(mockCar1), "Should contain first mock car");
-        assertTrue(finalProducts.contains(mockCar2), "Should contain second mock car");
+        assertTrue(finalProducts.contains(car1), "Should contain first mock car");
+        assertTrue(finalProducts.contains(car2), "Should contain second mock car");
     }
 
     @Test
@@ -544,11 +734,27 @@ class ScraperTest {
         Future<CarDetails> mockFuture1 = mock(Future.class);
         Future<CarDetails> mockFuture2 = mock(Future.class);
 
-        CarDetails mockCar = new CarDetails("https://999.md/ro/ad1", "Test Car", 5000, 100000,
-                "2023-01-01", "Vând", "Chisinau", "TestUser", 2020,
-                "Stânga", 5, "Sedan", 4, 1600, 120, "Benzină", "Manual", "Față", "Roșu");
+        CarDetails car = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(2000)
+                .mileage(300000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
 
-        when(mockFuture1.get()).thenReturn(mockCar);
+        when(mockFuture1.get()).thenReturn(car);
         when(mockFuture2.get()).thenReturn(null);
 
         futures.add(mockFuture1);
@@ -557,7 +763,7 @@ class ScraperTest {
         scraper.fetchCarDetails(finalProducts, futures);
 
         assertEquals(1, finalProducts.size(), "Should have only 1 car (null results ignored)");
-        assertEquals(mockCar, finalProducts.get(0), "Should contain the valid mock car");
+        assertEquals(car, finalProducts.get(0), "Should contain the valid mock car");
     }
 
     @Test
@@ -568,11 +774,27 @@ class ScraperTest {
         Future<CarDetails> mockFuture1 = mock(Future.class);
         Future<CarDetails> mockFuture2 = mock(Future.class);
 
-        CarDetails mockCar = new CarDetails("https://999.md/ro/ad1", "Test Car", 5000, 100000,
-                "2023-01-01", "Vând", "Chisinau", "TestUser", 2020,
-                "Stânga", 5, "Sedan", 4, 1600, 120, "Benzină", "Manual", "Față", "Roșu");
+        CarDetails car = new CarDetails.Builder().link(null)
+                .name(null)
+                .eurPrice(2000)
+                .mileage(300000)
+                .updateDate(null)
+                .adType("Vând")
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null).build();
 
-        when(mockFuture1.get()).thenReturn(mockCar);
+        when(mockFuture1.get()).thenReturn(car);
         when(mockFuture2.get()).thenThrow(new ExecutionException("Test exception", new RuntimeException()));
 
         futures.add(mockFuture1);
@@ -581,7 +803,7 @@ class ScraperTest {
         assertDoesNotThrow(() -> scraper.fetchCarDetails(finalProducts, futures));
 
         assertEquals(1, finalProducts.size(), "Should have 1 car (exception case ignored)");
-        assertEquals(mockCar, finalProducts.get(0), "Should contain the valid mock car");
+        assertEquals(car, finalProducts.get(0), "Should contain the valid mock car");
 
         assertTrue(outContent.toString().isEmpty() || outContent.toString().contains("Error"),
                 "Should log error message or have no console output");

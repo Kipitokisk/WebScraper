@@ -66,11 +66,26 @@ class DatabaseManagerIT {
 
     @Test
     void testSaveCars_ValidCar() throws SQLException {
-        CarDetails car = new CarDetails(
-                "https://999.md/ro/car", "Renault Megane 2016", 15000, 100000,
-                null, "Vând", "Orhei", "John", 2016,
-                "Stânga", 5, "Sedan", 4, 1800, 132,
-                "Benzină", "Automat", "Față", "Alb");
+        CarDetails car = new CarDetails.Builder().link("https://999.md/ro/car")
+                .name("Renault Megane 2016")
+                .eurPrice(15000)
+                .mileage(100000)
+                .updateDate(null)
+                .adType("Vând")
+                .region("Orhei")
+                .author("John")
+                .yearOfFabrication(2016)
+                .wheelSide("Stânga")
+                .nrOfSeats(5)
+                .body("Sedan")
+                .nrOfDoors(4)
+                .engineCapacity(1800)
+                .horsepower(132)
+                .petrolType("Benzină")
+                .gearsType("Automat")
+                .tractionType("Față")
+                .color("Alb")
+                .build();
 
         databaseManager.saveCars(Collections.singletonList(car));
 
@@ -120,8 +135,26 @@ class DatabaseManagerIT {
 
     @Test
     void testSaveCarsWithNullValues() throws SQLException {
-        CarDetails car = new CarDetails("https://999.md/ro/car", null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        CarDetails car = new CarDetails.Builder().link("https://999.md/ro/car")
+                .name(null)
+                .eurPrice(null)
+                .mileage(null)
+                .updateDate(null)
+                .adType(null)
+                .region(null)
+                .author(null)
+                .yearOfFabrication(null)
+                .wheelSide(null)
+                .nrOfSeats(null)
+                .body(null)
+                .nrOfDoors(null)
+                .engineCapacity(null)
+                .horsepower(null)
+                .petrolType(null)
+                .gearsType(null)
+                .tractionType(null)
+                .color(null)
+                .build();
 
         databaseManager.saveCars(Collections.singletonList(car));
 

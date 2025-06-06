@@ -37,7 +37,7 @@ class DatabaseManagerHelperTest {
     @Test
     void testReplaceDate_CaseSensitiveMismatch() {
         String input = "12 Ian. 2024";  // "Ian." instead of "ian."
-        assertEquals("12 Ian. 2024", dbHelper.replaceDate(input)); // Should not change
+        assertEquals("12 Ian. 2024", dbHelper.replaceDate(input));
     }
 
     @Test
