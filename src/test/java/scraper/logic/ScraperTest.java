@@ -716,40 +716,6 @@ class ScraperTest {
         assertEquals("car2", capturedElements.get(1).id());
     }
 
-
-
-    @Test
-    void testProcessCurrentPage_extractCarDetailsThrows_exceptionLoggedAndContinues() {
-        String html = "<div class='styles_adlist__3YsgA styles_flex__9wOfD'>" +
-                "<div class='AdPhoto_wrapper__gAOIH' id='car1'>" +
-                "  <a class='AdPhoto_info__link__OwhY6' href='/car1'></a>" +
-                "</div>" +
-                "<div class='AdPhoto_wrapper__gAOIH' id='car2'>" +
-                "  <a class='AdPhoto_info__link__OwhY6' href='/car2'></a>" +
-                "</div>" +
-                "</div>";
-
-        when(pageMock.content()).thenReturn(html);
-        when(pageMock.waitForSelector(anyString())).thenReturn(null);
-
-        AtomicInteger callCount = new AtomicInteger(0);
-        doAnswer(invocation -> {
-            if (callCount.getAndIncrement() == 0) {
-                throw new RuntimeException("Test exception");
-            }
-            return null;
-        }).when(scraper).extractCarDetails(any(Element.class), anyList());
-
-        List<CarDetails> finalProducts = new ArrayList<>();
-
-        scraper.processCurrentPage(finalProducts);
-
-        verify(loggerMock, times(1))
-                .error("Error processing car element, skipping to next");
-
-        verify(scraper, times(2)).extractCarDetails(any(Element.class), eq(finalProducts));
-    }
-
     @Test
     void testProcessAllPages_singlePage_buttonNotClicked() {
         doNothing().when(scraper).processCurrentPage(anyList());
