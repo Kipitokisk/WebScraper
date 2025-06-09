@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Locale;
 
 public class DatabaseManager {
-    private final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
     private final String dbUrl;
     private final String dbUser;
     private final String dbPassword;
@@ -74,7 +73,7 @@ public class DatabaseManager {
         setNullableString(carsStmt, 2, car.getRegion());
         setNullableInt(carsStmt, 3, car.getMileage());
         setNullableInt(carsStmt, 4, car.getEurPrice());
-        Timestamp timestamp = parseRomanianDate(car.getUpdateDate());
+        Timestamp timestamp = dbHelper.parseRomanianDate(car.getUpdateDate());
         if (timestamp == null) {
             carsStmt.setNull(5, Types.TIMESTAMP);
         } else {
@@ -125,21 +124,6 @@ public class DatabaseManager {
             stmt.setNull(index, java.sql.Types.INTEGER);
         } else {
             stmt.setInt(index, value);
-        }
-    }
-
-    Timestamp parseRomanianDate(String dateStr) {
-        if (dateStr == null || dateStr.isBlank()) return null;
-
-        String replaced = dbHelper.replaceDate(dateStr);
-
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH);
-            Date parsed = sdf.parse(replaced);
-            return new Timestamp(parsed.getTime());
-        } catch (ParseException e) {
-            logger.error("Failed to parse normalized date: {}", replaced);
-            return null;
         }
     }
 
