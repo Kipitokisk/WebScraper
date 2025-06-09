@@ -98,7 +98,8 @@ public class Scraper {
             try {
                 Thread.sleep(1000);
 
-                WebElement nextButton = driver.findElement(By.cssSelector("button.Pagination_pagination__container__buttons__wrapper__icon__next__A22Rc"));
+                WebElement nextButton = driver
+                        .findElement(By.cssSelector("button.Pagination_pagination__container__buttons__wrapper__icon__next__A22Rc"));
                 if (nextButton.isEnabled() && nextButton.isDisplayed()) {
                     js.executeScript(SCRIPT, nextButton);
                     Thread.sleep(1000);
@@ -391,5 +392,21 @@ public class Scraper {
 
         dbManager.saveCars(finalProducts);
         printResults(finalProducts);
+    }
+
+    public void setWait(WebDriverWait wait) {
+        this.wait = wait;
+    }
+
+    public WebDriverWait getWait() {
+        return wait;
+    }
+
+    public void setJs(JavascriptExecutor js) {
+        this.js = js;
+    }
+
+    public JavascriptExecutor getJs() {
+        return js;
     }
 }

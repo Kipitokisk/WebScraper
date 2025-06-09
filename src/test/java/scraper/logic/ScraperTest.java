@@ -2,7 +2,11 @@ package scraper.logic;
 
 import org.jsoup.Connection;
 import org.jsoup.nodes.Element;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
 import scraper.database.DatabaseManager;
 import org.jsoup.Jsoup;
@@ -842,6 +846,71 @@ class ScraperTest {
         assertEquals(2, result.size());
         assertEquals("Car1", result.get(0).getName());
         assertEquals("Car2", result.get(1).getName());
+    }
+
+    @Test
+    void testProcessCurrentPage_FailsAfterRetries() {
+        when(webDriverMock.getPageSource()).thenThrow(new RuntimeException("Page source not available"));
+
+        List<CarDetails> result = new ArrayList<>();
+
+        scraper.processCurrentPage(result);
+
+        assertEquals(0, result.size());
+
+        verify(webDriverMock, times(3)).getPageSource();
+    }
+
+    @Test
+    void testProcessCurrentPage_NoCarElements() {
+        String emptyHtml = "<div class=\"styles_adlist__3YsgA styles_flex__9wOfD\"></div>"; // no car divs
+
+        when(webDriverMock.getPageSource()).thenReturn(emptyHtml);
+
+        List<CarDetails> result = new ArrayList<>();
+
+        scraper.processCurrentPage(result);
+
+        assertEquals(0, result.size());
+    }
+
+    @Test
+    void testSelectCarModelAndGeneration_NotSelected_executesScript() {
+        scraper.setWait(mock(WebDriverWait.class));
+        scraper.setJs(mock(JavascriptExecutor.class));
+        WebDriverWait wait = scraper.getWait();
+        JavascriptExecutor js = scraper.getJs();
+        WebElement modelDiv = mock(WebElement.class);
+        WebElement generationLabel = mock(WebElement.class);
+
+        when(wait.until(any())).thenReturn(modelDiv);
+
+        when(modelDiv.findElement(any(By.class))).thenReturn(generationLabel);
+
+        when(generationLabel.isSelected()).thenReturn(false);
+
+        scraper.selectCarModelAndGeneration();
+
+        verify(js, times(1)).executeScript(anyString(), eq(generationLabel));
+    }
+
+    @Test
+    void testSelectCarModelAndGeneration_Selected_noScript() {
+        scraper.setWait(mock(WebDriverWait.class));
+        scraper.setJs(mock(JavascriptExecutor.class));
+        WebDriverWait wait = scraper.getWait();
+        JavascriptExecutor js = scraper.getJs();
+        WebElement modelDiv = mock(WebElement.class);
+        WebElement generationLabel = mock(WebElement.class);
+
+        when(wait.until(any())).thenReturn(modelDiv);
+        when(modelDiv.findElement(any(By.class))).thenReturn(generationLabel);
+
+        when(generationLabel.isSelected()).thenReturn(true);
+
+        scraper.selectCarModelAndGeneration();
+
+        verify(js, never()).executeScript(anyString(), any());
     }
 
 }
