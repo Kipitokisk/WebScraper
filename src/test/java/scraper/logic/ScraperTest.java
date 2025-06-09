@@ -745,7 +745,7 @@ class ScraperTest {
         scraper.processCurrentPage(finalProducts);
 
         verify(loggerMock, times(1))
-                .error(eq("Error processing car element: {}"), eq("Test exception"));
+                .error("Error processing car element, skipping to next");
 
         verify(scraper, times(2)).extractCarDetails(any(Element.class), eq(finalProducts));
     }
