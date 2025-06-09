@@ -10,8 +10,6 @@ FROM openjdk:17-jdk-slim AS final
 
 WORKDIR /app
 
-# Copy the compiled JAR
 COPY --from=builder /app/target/WebScraper-1.0-SNAPSHOT.jar /app/app.jar
 
-# Run the application
 CMD ["java", "-jar", "/app/app.jar"]

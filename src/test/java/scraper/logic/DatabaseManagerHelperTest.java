@@ -10,7 +10,7 @@ import java.util.Locale;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-public class DatabaseManagerHelperTest {
+class DatabaseManagerHelperTest {
     private final DatabaseManagerHelper databaseManagerHelper = new DatabaseManagerHelper();
 
     @Test

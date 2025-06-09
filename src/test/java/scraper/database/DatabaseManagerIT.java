@@ -9,11 +9,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import scraper.model.CarDetails;
 
 import java.sql.*;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Collections;
-import java.util.Locale;
-
 
 import static org.junit.jupiter.api.Assertions.*;
 

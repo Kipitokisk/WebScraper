@@ -2,8 +2,7 @@ package scraper.logic;
 
 import org.jsoup.Connection;
 import org.jsoup.nodes.Element;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
+import org.openqa.selenium.WebDriver;
 import org.slf4j.Logger;
 import scraper.database.DatabaseManager;
 import org.jsoup.Jsoup;
@@ -12,7 +11,6 @@ import org.jsoup.select.Elements;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import scraper.factory.WebDriverFactory;
 import scraper.model.CarDetails;
 
 import java.io.ByteArrayOutputStream;
@@ -20,16 +18,17 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 class ScraperTest {
-    WebDriverFactory webDriverFactory;
     DatabaseManager databaseManagerMock;
     Connection connectionMock;
+    WebDriver webDriverMock;
     Logger loggerMock;
 
     private Scraper scraper;
@@ -38,11 +37,11 @@ class ScraperTest {
 
     @BeforeEach
     void setUp() {
-        webDriverFactory = mock(WebDriverFactory.class);
         databaseManagerMock = mock(DatabaseManager.class);
         connectionMock = mock(Connection.class);
+        webDriverMock = mock(WebDriver.class);
         loggerMock = mock(Logger.class);
-        scraper = spy(new Scraper(webDriverFactory, "https://999.md", "Renault", "Megane", "III (2008 - 2016)", databaseManagerMock, loggerMock));
+        scraper = spy(new Scraper(webDriverMock, "https://999.md", "Renault", "Megane", "III (2008 - 2016)", databaseManagerMock, loggerMock));
         System.setOut(new PrintStream(outContent));
     }
 
@@ -685,4 +684,164 @@ class ScraperTest {
 
         assertTrue(finalProducts.isEmpty());
     }
+
+    @Test
+    void testSelectCar_WithValidLinks() {
+        String html = """
+            <div class="car">
+                <a class="AdPhoto_info__link__OwhY6" href="/car1"></a>
+            </div>
+            <div class="car">
+                <a class="AdPhoto_info__link__OwhY6" href="/car2"></a>
+            </div>
+            """;
+
+        Elements carElements = Jsoup.parse(html).select("div.car");
+        List<String> carLinks = new ArrayList<>();
+
+        scraper.selectCar(carElements, carLinks);
+
+        assertEquals(2, carLinks.size());
+        assertTrue(carLinks.contains("/car1"));
+        assertTrue(carLinks.contains("/car2"));
+    }
+
+    @Test
+    void testSelectCar_WithSomeMissingLinks() {
+        String html = """
+            <div class="car">
+                <a class="AdPhoto_info__link__OwhY6" href="/car1"></a>
+            </div>
+            <div class="car">
+                <span>No link here</span>
+            </div>
+            """;
+
+        Elements carElements = Jsoup.parse(html).select("div.car");
+        List<String> carLinks = new ArrayList<>();
+
+        scraper.selectCar(carElements, carLinks);
+
+        assertEquals(1, carLinks.size());
+        assertEquals("/car1", carLinks.get(0));
+    }
+
+    @Test
+    void testSelectCar_NoMatchingAnchorTags() {
+        String html = """
+            <div class="car">
+                <a class="DifferentClass" href="/car1"></a>
+            </div>
+            """;
+
+        Elements carElements = Jsoup.parse(html).select("div.car");
+        List<String> carLinks = new ArrayList<>();
+
+        scraper.selectCar(carElements, carLinks);
+
+        assertTrue(carLinks.isEmpty());
+    }
+
+    @Test
+    void testSelectCar_EmptyElements() {
+        Elements carElements = new Elements();
+        List<String> carLinks = new ArrayList<>();
+
+        scraper.selectCar(carElements, carLinks);
+
+        assertTrue(carLinks.isEmpty());
+    }
+
+    @Test
+    void testProcessFutureCarDetail_AllSuccessful() throws Exception {
+        CarDetails car1 = new CarDetails.Builder().build();
+        CarDetails car2 = new CarDetails.Builder().build();
+
+        Future<CarDetails> future1 = mock(Future.class);
+        Future<CarDetails> future2 = mock(Future.class);
+
+        when(future1.get()).thenReturn(car1);
+        when(future2.get()).thenReturn(car2);
+
+        List<Future<CarDetails>> futures = List.of(future1, future2);
+        List<CarDetails> finalProducts = new ArrayList<>();
+
+        scraper.processFutureCarDetail(finalProducts, futures);
+
+        assertEquals(2, finalProducts.size());
+        assertTrue(finalProducts.contains(car1));
+        assertTrue(finalProducts.contains(car2));
+    }
+
+    @Test
+    void testProcessFutureCarDetail_WithNullResult() throws Exception {
+        CarDetails car1 = new CarDetails.Builder().build();
+
+        Future<CarDetails> future1 = mock(Future.class);
+        Future<CarDetails> future2 = mock(Future.class);
+
+        when(future1.get()).thenReturn(car1);
+        when(future2.get()).thenReturn(null);
+
+        List<Future<CarDetails>> futures = List.of(future1, future2);
+        List<CarDetails> finalProducts = new ArrayList<>();
+
+        scraper.processFutureCarDetail(finalProducts, futures);
+
+        assertEquals(1, finalProducts.size());
+        assertEquals(car1, finalProducts.get(0));
+    }
+
+    @Test
+    void testProcessFutureCarDetail_WithException() throws Exception {
+        CarDetails car1 = new CarDetails.Builder().build();
+
+        Future<CarDetails> future1 = mock(Future.class);
+        Future<CarDetails> future2 = mock(Future.class);
+
+        when(future1.get()).thenReturn(car1);
+        when(future2.get()).thenThrow(new ExecutionException("Fail", new RuntimeException()));
+
+        List<Future<CarDetails>> futures = List.of(future1, future2);
+        List<CarDetails> finalProducts = new ArrayList<>();
+
+        scraper.processFutureCarDetail(finalProducts, futures);
+
+        assertEquals(1, finalProducts.size());
+        assertEquals(car1, finalProducts.get(0));
+    }
+
+    @Test
+    void testProcessFutureCarDetail_EmptyInput() {
+        List<Future<CarDetails>> futures = new ArrayList<>();
+        List<CarDetails> finalProducts = new ArrayList<>();
+
+        scraper.processFutureCarDetail(finalProducts, futures);
+
+        assertTrue(finalProducts.isEmpty());
+    }
+
+    @Test
+    void testProcessCurrentPage_Success() {
+        String html = """
+            <div class="styles_adlist__3YsgA styles_flex__9wOfD">
+                <div class="AdPhoto_wrapper__gAOIH"><a class="AdPhoto_info__link__OwhY6" href="/car1"></a></div>
+                <div class="AdPhoto_wrapper__gAOIH"><a class="AdPhoto_info__link__OwhY6" href="/car2"></a></div>
+            </div>
+            """;
+
+        when(webDriverMock.getPageSource()).thenReturn(html);
+
+        doReturn(new CarDetails.Builder().name("Car1").build()).when(scraper).extractDetailedCarInfo("/car1");
+        doReturn(new CarDetails.Builder().name("Car2").build()).when(scraper).extractDetailedCarInfo("/car2");
+
+        List<CarDetails> result = new ArrayList<>();
+
+        scraper.processCurrentPage(result);
+
+        assertEquals(2, result.size());
+        assertEquals("Car1", result.get(0).getName());
+        assertEquals("Car2", result.get(1).getName());
+    }
+
 }

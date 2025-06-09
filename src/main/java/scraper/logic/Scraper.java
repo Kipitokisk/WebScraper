@@ -1,6 +1,5 @@
 package scraper.logic;
 
-import scraper.factory.WebDriverFactory;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -14,7 +13,6 @@ import scraper.database.DatabaseManager;
 import scraper.model.CarDetails;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.*;
@@ -28,26 +26,26 @@ public class Scraper {
     private final String carBrand;
     private final String carModel;
     private final String carGeneration;
-    private WebDriver driver;
+    private final WebDriver driver;
     private WebDriverWait wait;
     private JavascriptExecutor js;
-    private final WebDriverFactory factory;
     private final DatabaseManager dbManager;
     private final Logger logger;
     private static final String SCRIPT = "arguments[0].click();";
+    private Random random = new Random();
 
-    public Scraper(WebDriverFactory factory, String baseUrl, String carBrand, String carModel, String carGeneration, DatabaseManager databaseManager, Logger logger) {
-        this.factory = factory;
+    public Scraper(WebDriver driver, String baseUrl, String carBrand, String carModel, String carGeneration,
+                   DatabaseManager databaseManager, Logger logger) {
         this.baseUrl = baseUrl;
         this.carBrand = carBrand;
         this.carModel = carModel;
         this.carGeneration = carGeneration;
         this.dbManager = databaseManager;
         this.logger = logger;
+        this.driver = driver;
     }
 
-    public void scrape() throws SQLException, MalformedURLException {
-        driver = setupDriver();
+    public void scrape() throws SQLException {
         wait = new WebDriverWait(driver, Duration.ofSeconds(4));
         js = (JavascriptExecutor) driver;
         List<CarDetails> finalProducts = new ArrayList<>();
@@ -59,19 +57,6 @@ public class Scraper {
         } finally {
             driver.quit();
         }
-    }
-
-    WebDriver setupDriver() throws MalformedURLException {
-        try {
-            System.out.println("Waiting for Selenium services to start");
-            Thread.sleep(10000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Startup delay interrupted", e);
-        }
-        driver = factory.createWebDriver();
-        Runtime.getRuntime().addShutdownHook(new Thread(driver::quit));
-        return driver;
     }
 
     void navigateToSearchPage() {
@@ -140,12 +125,7 @@ public class Scraper {
                 Elements carElements = doc.select("div.styles_adlist__3YsgA.styles_flex__9wOfD div.AdPhoto_wrapper__gAOIH");
 
                 List<String> carLinks = new ArrayList<>();
-                for (Element carElement : carElements) {
-                    Element linkEl = carElement.selectFirst("a.AdPhoto_info__link__OwhY6");
-                    if (linkEl != null) {
-                        carLinks.add(linkEl.attr("href"));
-                    }
-                }
+                selectCar(carElements, carLinks);
 
                 ExecutorService executor = Executors.newFixedThreadPool(20);
                 List<Future<CarDetails>> futures = new ArrayList<>();
@@ -154,16 +134,7 @@ public class Scraper {
                     futures.add(executor.submit(() -> extractDetailedCarInfo(carLink)));
                 }
 
-                for (Future<CarDetails> future : futures) {
-                    try {
-                        CarDetails details = future.get();
-                        if (details != null) {
-                            finalProducts.add(details);
-                        }
-                    } catch (Exception e) {
-                        logger.error("Error processing car detail future", e);
-                    }
-                }
+                processFutureCarDetail(finalProducts, futures);
 
                 executor.shutdown();
                 executor.awaitTermination(1, TimeUnit.MINUTES);
@@ -172,6 +143,28 @@ public class Scraper {
             } catch (Exception e) {
                 logger.error("Error processing page, retrying... ({}/{})", (attempts + 1), maxRetries);
                 attempts++;
+            }
+        }
+    }
+
+    void processFutureCarDetail(List<CarDetails> finalProducts, List<Future<CarDetails>> futures) {
+        for (Future<CarDetails> future : futures) {
+            try {
+                CarDetails details = future.get();
+                if (details != null) {
+                    finalProducts.add(details);
+                }
+            } catch (Exception e) {
+                logger.error("Error processing car detail future", e);
+            }
+        }
+    }
+
+    void selectCar(Elements carElements, List<String> carLinks) {
+        for (Element carElement : carElements) {
+            Element linkEl = carElement.selectFirst("a.AdPhoto_info__link__OwhY6");
+            if (linkEl != null) {
+                carLinks.add(linkEl.attr("href"));
             }
         }
     }
@@ -190,7 +183,7 @@ public class Scraper {
 
     CarDetails extractDetailedCarInfo(String carLink) {
         try {
-            int delayMillis = 1000 + new Random().nextInt(2000);
+            int delayMillis = 1000 + random.nextInt(2000);
             Thread.sleep(delayMillis);
 
             Document doc = Jsoup.connect(baseUrl + carLink)
