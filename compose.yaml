@@ -29,6 +29,8 @@ services:
       BASE_URL: https://999.md
       SEARCH_URL: "https://999.md/ro/list/transport/
       cars?appl=1&ef=16,1,6,2200&eo=12885,12900,12912,139,35538&aof=20&o_1_2095_8_98=36188"
+      CAR_BRAND: Renault
+      CAR_MODEL: Megane
     ports:
       - "8080:8080"
 

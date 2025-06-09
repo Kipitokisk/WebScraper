@@ -35,6 +35,8 @@ public class Scraper {
     private final String searchUrl;
     private final DatabaseManager dbManager;
     private final HttpClient client;
+    private String carBrand = System.getenv("CAR_BRAND");
+    private String carModel = System.getenv("CAR_MODEL");
 
 
     public Scraper(String baseUrl, String searchUrl, DatabaseManager dbManager, Logger logger, HttpClient client) {
@@ -171,6 +173,10 @@ public class Scraper {
             Document doc = Jsoup.connect(baseUrl + carLink).get();
             
             String title = getTitle(doc);
+            if (!title.contains(carBrand + " " + carModel)) {
+                return null;
+            }
+
 
             Elements items = doc.select("div.styles_aside__0m8KW");
             
@@ -363,5 +369,13 @@ public class Scraper {
 
         dbManager.saveCars(finalProducts);
         printResults(finalProducts);
+    }
+
+    public void setCarBrand(String carBrand) {
+        this.carBrand = carBrand;
+    }
+
+    public void setCarModel(String carModel) {
+        this.carModel = carModel;
     }
 }

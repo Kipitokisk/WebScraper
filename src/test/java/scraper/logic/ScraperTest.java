@@ -106,7 +106,8 @@ class ScraperTest {
         try (var jsoupMock = mockStatic(Jsoup.class)) {
             jsoupMock.when(() -> Jsoup.connect(anyString())).thenReturn(mock(org.jsoup.Connection.class));
             when(Jsoup.connect(anyString()).get()).thenReturn(doc);
-
+            scraper.setCarBrand("Renault");
+            scraper.setCarModel("Megane");
             CarDetails result = scraper.extractDetailedCarInfo(carLink);
 
             assertNotNull(result, "scraper.model.CarDetails should not be null");
