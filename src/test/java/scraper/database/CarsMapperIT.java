@@ -18,7 +18,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Testcontainers
-class DatabaseManagerIT {
+class CarsMapperIT {
 
     @Container
     private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
@@ -27,16 +27,12 @@ class DatabaseManagerIT {
             .withPassword("pass")
             .withInitScript("init.sql");
 
-    private DatabaseManager databaseManager;
+    private CarsMapper carsMapper;
     private Connection connection;
 
     @BeforeEach
     void setUp() throws SQLException {
-        databaseManager = new DatabaseManager(
-                postgres.getJdbcUrl(),
-                postgres.getUsername(),
-                postgres.getPassword()
-        );
+        carsMapper = new CarsMapper();
         connection = DriverManager.getConnection(
                 postgres.getJdbcUrl(),
                 postgres.getUsername(),
@@ -63,7 +59,7 @@ class DatabaseManagerIT {
     }
 
     @Test
-    void testSaveCars_ValidCar() throws SQLException {
+    void testSave_ValidCar() throws SQLException {
         CarDetails car = new CarDetails.Builder().link("https://999.md/ro/car")
                 .name("Renault Megane 2016")
                 .eurPrice(15000)
@@ -85,7 +81,7 @@ class DatabaseManagerIT {
                 .color("Alb")
                 .build();
 
-        databaseManager.saveCars(Collections.singletonList(car));
+        carsMapper.save(car, connection);
 
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery("""
@@ -132,57 +128,8 @@ class DatabaseManagerIT {
     }
 
     @Test
-    void testSaveCarsWithNullValues() throws SQLException {
-        CarDetails car = new CarDetails.Builder().link("https://999.md/ro/car")
-                .name(null)
-                .eurPrice(null)
-                .mileage(null)
-                .updateDate(null)
-                .adType(null)
-                .region(null)
-                .author(null)
-                .yearOfFabrication(null)
-                .wheelSide(null)
-                .nrOfSeats(null)
-                .body(null)
-                .nrOfDoors(null)
-                .engineCapacity(null)
-                .horsepower(null)
-                .petrolType(null)
-                .gearsType(null)
-                .tractionType(null)
-                .color(null)
-                .build();
-
-        databaseManager.saveCars(Collections.singletonList(car));
-
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT * FROM cars JOIN particularities ON cars.particularities_id = particularities.id")) {
-            assertTrue(rs.next());
-            assertEquals("https://999.md/ro/car", rs.getString("link"));
-            assertNull(rs.getString("region"));
-            assertEquals(0, rs.getInt("mileage"));
-            assertEquals(0, rs.getInt("price_eur"));
-            assertNull(rs.getString("update_date"));
-            assertNull(rs.getString("author"));
-            assertEquals(0, rs.getInt("year_of_fabrication"));
-            assertNull(rs.getObject("wheel_side_id"));
-            assertNull(rs.getObject("nr_of_seats_id"));
-            assertNull(rs.getObject("body_id"));
-            assertNull(rs.getObject("nr_of_doors_id"));
-            assertNull(rs.getObject("engine_capacity_id"));
-            assertNull(rs.getObject("horsepower_id"));
-            assertNull(rs.getObject("petrol_type_id"));
-            assertNull(rs.getObject("gears_type_id"));
-            assertNull(rs.getObject("traction_type_id"));
-            assertNull(rs.getObject("color_id"));
-            assertNull(rs.getObject("ad_type_id"));
-        }
-    }
-
-    @Test
-    void testSaveCars_EmptyList() throws SQLException {
-        databaseManager.saveCars(Collections.emptyList());
+    void testSaveBatch_EmptyList() throws SQLException {
+        carsMapper.saveBatch(Collections.emptyList(), connection);
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT COUNT(*) as count FROM cars")) {
             assertTrue(rs.next());

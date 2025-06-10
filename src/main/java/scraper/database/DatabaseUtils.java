@@ -1,13 +1,32 @@
-package scraper.logic;
+package scraper.database;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-public class DatabaseManagerHelper {
-    public Timestamp parseRomanianDate(String dateStr) {
+public class DatabaseUtils {
+    public static void setNullableString(PreparedStatement stmt, int index, String value) throws SQLException {
+        if (value == null) {
+            stmt.setNull(index, Types.VARCHAR);
+        } else {
+            stmt.setString(index, value);
+        }
+    }
+
+    public static void setNullableInt(PreparedStatement stmt, int index, Integer value) throws SQLException {
+        if (value == null) {
+            stmt.setNull(index, Types.INTEGER);
+        } else {
+            stmt.setInt(index, value);
+        }
+    }
+
+    public static Timestamp parseRomanianDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return null;
 
         String replaced = replaceDate(dateStr);
@@ -22,8 +41,8 @@ public class DatabaseManagerHelper {
         }
     }
 
-    String replaceDate(String dateStr) {
-        String replaced = dateStr
+    public static String replaceDate(String dateStr) {
+        return dateStr
                 .replace("ian.", "Jan")
                 .replace("feb.", "Feb")
                 .replace("mar.", "Mar")
@@ -36,6 +55,5 @@ public class DatabaseManagerHelper {
                 .replace("oct.", "Oct")
                 .replace("nov.", "Nov")
                 .replace("dec.", "Dec");
-        return replaced;
     }
 }

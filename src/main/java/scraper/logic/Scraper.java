@@ -38,7 +38,6 @@ public class Scraper {
     private String carBrand = System.getenv("CAR_BRAND");
     private String carModel = System.getenv("CAR_MODEL");
 
-
     public Scraper(String baseUrl, String searchUrl, DatabaseManager dbManager, Logger logger, HttpClient client) {
         this.baseUrl = baseUrl;
         this.searchUrl = searchUrl;
@@ -171,19 +170,18 @@ public class Scraper {
     CarDetails extractDetailedCarInfo(String carLink) {
         try {
             Document doc = Jsoup.connect(baseUrl + carLink).get();
-            
+
             String title = getTitle(doc);
             if (!title.contains(carBrand + " " + carModel)) {
                 return null;
             }
 
-
             Elements items = doc.select("div.styles_aside__0m8KW");
-            
+
             String updateDate = getAdInfo(items, "p.styles_date__voWnk");
-            
+
             String adType = getAdInfo(items, "p.styles_type___J9Dy");
-            
+
             String eurPriceText = getAdInfo(items, "span.styles_sidebar__main__DaXQC");
             Integer eurPrice = getEurPrice(eurPriceText);
 
@@ -361,7 +359,7 @@ public class Scraper {
                 .orElseThrow(() -> new RuntimeException("There is no max price"));
     }
 
-    void saveResults(List<CarDetails> finalProducts) throws SQLException{
+    void saveResults(List<CarDetails> finalProducts) throws SQLException {
         if (finalProducts.isEmpty()) {
             logger.info("No products found.");
             return;

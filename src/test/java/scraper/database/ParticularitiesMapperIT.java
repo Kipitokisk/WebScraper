@@ -18,7 +18,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Testcontainers
-class DatabaseManagerIT {
+class ParticularitiesMapperIT {
 
     @Container
     private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
@@ -27,16 +27,12 @@ class DatabaseManagerIT {
             .withPassword("pass")
             .withInitScript("init.sql");
 
-    private DatabaseManager databaseManager;
+    private ParticularitiesMapper particularitiesMapper;
     private Connection connection;
 
     @BeforeEach
     void setUp() throws SQLException {
-        databaseManager = new DatabaseManager(
-                postgres.getJdbcUrl(),
-                postgres.getUsername(),
-                postgres.getPassword()
-        );
+        particularitiesMapper = new ParticularitiesMapper();
         connection = DriverManager.getConnection(
                 postgres.getJdbcUrl(),
                 postgres.getUsername(),
@@ -55,22 +51,16 @@ class DatabaseManagerIT {
     private void clearDatabase() throws SQLException {
         try (Statement stmt = connection.createStatement()) {
             stmt.execute("SET CONSTRAINTS ALL DEFERRED");
-            stmt.execute("TRUNCATE TABLE cars, particularities, wheel_side, nr_of_seats, body, " +
+            stmt.execute("TRUNCATE TABLE particularities, wheel_side, nr_of_seats, body, " +
                     "nr_of_doors, engine_capacity, horsepower, petrol_type, gears_type, " +
-                    "traction_type, color, ad_type RESTART IDENTITY CASCADE");
+                    "traction_type, color RESTART IDENTITY CASCADE");
             stmt.execute("SET CONSTRAINTS ALL IMMEDIATE");
         }
     }
 
     @Test
-    void testSaveCars_ValidCar() throws SQLException {
-        CarDetails car = new CarDetails.Builder().link("https://999.md/ro/car")
-                .name("Renault Megane 2016")
-                .eurPrice(15000)
-                .mileage(100000)
-                .updateDate(null)
-                .adType("Vând")
-                .region("Orhei")
+    void testSave_ValidParticularities() throws SQLException {
+        CarDetails car = new CarDetails.Builder()
                 .author("John")
                 .yearOfFabrication(2016)
                 .wheelSide("Stânga")
@@ -85,18 +75,16 @@ class DatabaseManagerIT {
                 .color("Alb")
                 .build();
 
-        databaseManager.saveCars(Collections.singletonList(car));
+        particularitiesMapper.save(car, connection);
 
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery("""
-                     SELECT c.link, c.region, c.mileage, c.price_eur, p.author, p.year_of_fabrication,
-                            c.update_date, ad.name as ad_type,
+                     SELECT p.author, p.year_of_fabrication,
                             ws.name as wheel_side, ns.name as nr_of_seats, b.name as body,
                             nd.name as nr_of_doors, ec.name as engine_capacity, hp.name as horsepower,
                             pt.name as petrol_type, gt.name as gears_type, tt.name as traction_type,
                             cl.name as color
-                     FROM cars c
-                     JOIN particularities p ON c.particularities_id = p.id
+                     FROM particularities p
                      JOIN wheel_side ws ON p.wheel_side_id = ws.id
                      JOIN nr_of_seats ns ON p.nr_of_seats_id = ns.id
                      JOIN body b ON p.body_id = b.id
@@ -107,17 +95,11 @@ class DatabaseManagerIT {
                      JOIN gears_type gt ON p.gears_type_id = gt.id
                      JOIN traction_type tt ON p.traction_type_id = tt.id
                      JOIN color cl ON p.color_id = cl.id
-                     JOIN ad_type ad ON c.ad_type_id = ad.id
                      """)) {
 
             assertTrue(rs.next());
-            assertEquals("https://999.md/ro/car", rs.getString("link"));
-            assertEquals("Orhei", rs.getString("region"));
-            assertEquals(100000, rs.getInt("mileage"));
-            assertEquals(15000, rs.getInt("price_eur"));
             assertEquals("John", rs.getString("author"));
             assertEquals(2016, rs.getInt("year_of_fabrication"));
-            assertEquals("Vând", rs.getString("ad_type"));
             assertEquals("Stânga", rs.getString("wheel_side"));
             assertEquals("5", rs.getString("nr_of_seats"));
             assertEquals("Sedan", rs.getString("body"));
@@ -132,59 +114,10 @@ class DatabaseManagerIT {
     }
 
     @Test
-    void testSaveCarsWithNullValues() throws SQLException {
-        CarDetails car = new CarDetails.Builder().link("https://999.md/ro/car")
-                .name(null)
-                .eurPrice(null)
-                .mileage(null)
-                .updateDate(null)
-                .adType(null)
-                .region(null)
-                .author(null)
-                .yearOfFabrication(null)
-                .wheelSide(null)
-                .nrOfSeats(null)
-                .body(null)
-                .nrOfDoors(null)
-                .engineCapacity(null)
-                .horsepower(null)
-                .petrolType(null)
-                .gearsType(null)
-                .tractionType(null)
-                .color(null)
-                .build();
-
-        databaseManager.saveCars(Collections.singletonList(car));
-
+    void testSaveBatch_EmptyList() throws SQLException {
+        particularitiesMapper.saveBatch(Collections.emptyList(), connection);
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT * FROM cars JOIN particularities ON cars.particularities_id = particularities.id")) {
-            assertTrue(rs.next());
-            assertEquals("https://999.md/ro/car", rs.getString("link"));
-            assertNull(rs.getString("region"));
-            assertEquals(0, rs.getInt("mileage"));
-            assertEquals(0, rs.getInt("price_eur"));
-            assertNull(rs.getString("update_date"));
-            assertNull(rs.getString("author"));
-            assertEquals(0, rs.getInt("year_of_fabrication"));
-            assertNull(rs.getObject("wheel_side_id"));
-            assertNull(rs.getObject("nr_of_seats_id"));
-            assertNull(rs.getObject("body_id"));
-            assertNull(rs.getObject("nr_of_doors_id"));
-            assertNull(rs.getObject("engine_capacity_id"));
-            assertNull(rs.getObject("horsepower_id"));
-            assertNull(rs.getObject("petrol_type_id"));
-            assertNull(rs.getObject("gears_type_id"));
-            assertNull(rs.getObject("traction_type_id"));
-            assertNull(rs.getObject("color_id"));
-            assertNull(rs.getObject("ad_type_id"));
-        }
-    }
-
-    @Test
-    void testSaveCars_EmptyList() throws SQLException {
-        databaseManager.saveCars(Collections.emptyList());
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) as count FROM cars")) {
+             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) as count FROM particularities")) {
             assertTrue(rs.next());
             assertEquals(0, rs.getInt("count"));
         }
