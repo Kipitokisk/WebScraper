@@ -8,9 +8,8 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
-import scraper.database.CarsMapper;
-import scraper.model.CarDetails;
-import scraper.database.DatabaseManager;
+import scraper.database.*;
+import scraper.model.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,8 +36,44 @@ public class Scraper {
     private final DatabaseManager dbManager;
     private final HttpClient client;
     private final CarsMapper carsMapper;
+    private final AdTypeMapper adTypeMapper;
+    private final BodyMapper bodyMapper;
+    private final ColorMapper colorMapper;
+    private final EngineCapacityMapper engineCapacityMapper;
+    private final GearsTypeMapper gearsTypeMapper;
+    private final HorsepowerMapper horsepowerMapper;
+    private final NrOfDoorsMapper nrOfDoorsMapper;
+    private final NrOfSeatsMapper nrOfSeatsMapper;
+    private final PetrolTypeMapper petrolTypeMapper;
+    private final WheelSideMapper wheelSideMapper;
+    private final TractionTypeMapper tractionTypeMapper;
+    private final ParticularitiesMapper particularitiesMapper;
     private String carBrand = System.getenv("CAR_BRAND");
     private String carModel = System.getenv("CAR_MODEL");
+
+    private final Set<String> wheelSideSet = new HashSet<>();
+    private final Set<String> nrOfSeatsSet = new HashSet<>();
+    private final Set<String> bodySet = new HashSet<>();
+    private final Set<String> nrOfDoorsSet = new HashSet<>();
+    private final Set<String> engineCapacitySet = new HashSet<>();
+    private final Set<String> horsepowerSet = new HashSet<>();
+    private final Set<String> petrolTypeSet = new HashSet<>();
+    private final Set<String> gearsTypeSet = new HashSet<>();
+    private final Set<String> tractionTypeSet = new HashSet<>();
+    private final Set<String> colorSet = new HashSet<>();
+    private final Set<String> adTypeSet = new HashSet<>();
+
+    private List<WheelSide> wheelSides = new ArrayList<>();
+    private List<NrOfSeats> nrOfSeatsList = new ArrayList<>();
+    private List<Body> bodies = new ArrayList<>();
+    private List<NrOfDoors> nrOfDoorsList = new ArrayList<>();
+    private List<EngineCapacity> engineCapacities = new ArrayList<>();
+    private List<Horsepower> horsepowers = new ArrayList<>();
+    private List<PetrolType> petrolTypes = new ArrayList<>();
+    private List<GearsType> gearsTypes = new ArrayList<>();
+    private List<TractionType> tractionTypes = new ArrayList<>();
+    private List<Color> colors = new ArrayList<>();
+    private List<AdType> adTypes = new ArrayList<>();
 
     public Scraper(String baseUrl, String searchUrl, DatabaseManager dbManager, Logger logger, HttpClient client) {
         this.baseUrl = baseUrl;
@@ -46,6 +81,18 @@ public class Scraper {
         this.dbManager = dbManager;
         this.logger = logger;
         this.client = client;
+        this.adTypeMapper = new AdTypeMapper(dbManager);
+        this.bodyMapper = new BodyMapper(dbManager);
+        this.colorMapper = new ColorMapper(dbManager);
+        this.engineCapacityMapper = new EngineCapacityMapper(dbManager);
+        this.gearsTypeMapper = new GearsTypeMapper(dbManager);
+        this.horsepowerMapper = new HorsepowerMapper(dbManager);
+        this.nrOfDoorsMapper = new NrOfDoorsMapper(dbManager);
+        this.nrOfSeatsMapper = new NrOfSeatsMapper(dbManager);
+        this.petrolTypeMapper = new PetrolTypeMapper(dbManager);
+        this.tractionTypeMapper = new TractionTypeMapper(dbManager);
+        this.wheelSideMapper = new WheelSideMapper(dbManager);
+        this.particularitiesMapper = new ParticularitiesMapper(dbManager);
         this.carsMapper = new CarsMapper(dbManager);
     }
 
@@ -184,6 +231,7 @@ public class Scraper {
             String updateDate = getAdInfo(items, "p.styles_date__voWnk");
 
             String adType = getAdInfo(items, "p.styles_type___J9Dy");
+            if (adType != null) adTypeSet.add(adType);
 
             String eurPriceText = getAdInfo(items, "span.styles_sidebar__main__DaXQC");
             Integer eurPrice = getEurPrice(eurPriceText);
@@ -203,20 +251,34 @@ public class Scraper {
             Integer yearOfFabrication = getIntegerFromSection(particularities, "An de fabricație");
 
             String wheelSide = particularities.get("Volan");
+            if (wheelSide != null) wheelSideSet.add(wheelSide);
+
             String body = particularities.get("Tip caroserie");
+            if (body != null) bodySet.add(body);
+
             String color = particularities.get("Culoare");
+            if (color != null) colorSet.add(color);
 
-            Integer nrOfSeats = getIntegerFromSection(particularities, "Număr de locuri");
+            String nrOfSeats = particularities.get("Număr de locuri");
+            if (nrOfSeats != null) nrOfSeatsSet.add(nrOfSeats);
 
-            Integer nrOfDoors = getIntegerFromSection(particularities, "Număr uși");
+            String nrOfDoors = particularities.get("Număr uși");
+            if (nrOfDoors != null) nrOfDoorsSet.add(nrOfDoors);
 
-            Integer engineCapacity = getIntegerFromSection(particularities, "Capacitate cilindrică");
+            String engineCapacity = particularities.get("Capacitate cilindrică");
+            if (engineCapacity != null) engineCapacitySet.add(engineCapacity);
 
-            Integer horsepower = getIntegerFromSection(particularities, "Putere");
+            String horsepower = particularities.get("Putere");
+            if (horsepower != null) horsepowerSet.add(horsepower);
 
             String petrolType = particularities.get("Tip combustibil");
+            if (petrolType != null) petrolTypeSet.add(petrolType);
+
             String gearsType = particularities.get("Cutie de viteze");
+            if (gearsType != null) gearsTypeSet.add(gearsType);
+
             String tractionType = particularities.get("Tip tracțiune");
+            if (tractionType != null) tractionTypeSet.add(tractionType);
 
             Integer mileage = getIntegerFromSection(particularities, "Rulaj");
 
@@ -368,8 +430,45 @@ public class Scraper {
             return;
         }
 
+        processLookupEntities();
+        particularitiesMapper.saveBatch(finalProducts);
         carsMapper.saveBatch(finalProducts);
         printResults(finalProducts);
+    }
+
+    public void processLookupEntities() throws SQLException {
+        adTypeMapper.batchInsert(adTypeSet);
+        adTypes = adTypeMapper.getAll();
+
+        bodyMapper.batchInsert(bodySet);
+        bodies = bodyMapper.getAll();
+
+        colorMapper.batchInsert(colorSet);
+        colors = colorMapper.getAll();
+
+        engineCapacityMapper.batchInsert(engineCapacitySet);
+        engineCapacities = engineCapacityMapper.getAll();
+
+        gearsTypeMapper.batchInsert(gearsTypeSet);
+        gearsTypes = gearsTypeMapper.getAll();
+
+        horsepowerMapper.batchInsert(horsepowerSet);
+        horsepowers = horsepowerMapper.getAll();
+
+        nrOfDoorsMapper.batchInsert(nrOfDoorsSet);
+        nrOfDoorsList = nrOfDoorsMapper.getAll();
+
+        nrOfSeatsMapper.batchInsert(nrOfSeatsSet);
+        nrOfSeatsList = nrOfSeatsMapper.getAll();
+
+        petrolTypeMapper.batchInsert(petrolTypeSet);
+        petrolTypes = petrolTypeMapper.getAll();
+
+        tractionTypeMapper.batchInsert(tractionTypeSet);
+        tractionTypes = tractionTypeMapper.getAll();
+
+        wheelSideMapper.batchInsert(wheelSideSet);
+        wheelSides = wheelSideMapper.getAll();
     }
 
     public void setCarBrand(String carBrand) {
@@ -378,5 +477,49 @@ public class Scraper {
 
     public void setCarModel(String carModel) {
         this.carModel = carModel;
+    }
+
+    public List<AdType> getAdTypes() {
+        return adTypes;
+    }
+
+    public List<Color> getColors() {
+        return colors;
+    }
+
+    public List<TractionType> getTractionTypes() {
+        return tractionTypes;
+    }
+
+    public List<GearsType> getGearsTypes() {
+        return gearsTypes;
+    }
+
+    public List<PetrolType> getPetrolTypes() {
+        return petrolTypes;
+    }
+
+    public List<Horsepower> getHorsepowers() {
+        return horsepowers;
+    }
+
+    public List<EngineCapacity> getEngineCapacities() {
+        return engineCapacities;
+    }
+
+    public List<NrOfDoors> getNrOfDoorsList() {
+        return nrOfDoorsList;
+    }
+
+    public List<Body> getBodies() {
+        return bodies;
+    }
+
+    public List<NrOfSeats> getNrOfSeatsList() {
+        return nrOfSeatsList;
+    }
+
+    public List<WheelSide> getWheelSides() {
+        return wheelSides;
     }
 }

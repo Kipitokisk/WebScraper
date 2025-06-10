@@ -11,11 +11,11 @@ public class CarDetails {
     private final String author;
     private final Integer yearOfFabrication;
     private final String wheelSide;
-    private final Integer nrOfSeats;
+    private final String nrOfSeats;
     private final String body;
-    private final Integer nrOfDoors;
-    private final Integer engineCapacity;
-    private final Integer horsepower;
+    private final String nrOfDoors;
+    private final String engineCapacity;
+    private final String horsepower;
     private final String petrolType;
     private final String gearsType;
     private final String tractionType;
@@ -54,11 +54,11 @@ public class CarDetails {
         private String author;
         private Integer yearOfFabrication;
         private String wheelSide;
-        private Integer nrOfSeats;
+        private String nrOfSeats;
         private String body;
-        private Integer nrOfDoors;
-        private Integer engineCapacity;
-        private Integer horsepower;
+        private String nrOfDoors;
+        private String engineCapacity;
+        private String horsepower;
         private String petrolType;
         private String gearsType;
         private String tractionType;
@@ -114,7 +114,7 @@ public class CarDetails {
             return this;
         }
 
-        public Builder nrOfSeats(Integer nrOfSeats) {
+        public Builder nrOfSeats(String nrOfSeats) {
             this.nrOfSeats = nrOfSeats;
             return this;
         }
@@ -124,17 +124,17 @@ public class CarDetails {
             return this;
         }
 
-        public Builder nrOfDoors(Integer nrOfDoors) {
+        public Builder nrOfDoors(String nrOfDoors) {
             this.nrOfDoors = nrOfDoors;
             return this;
         }
 
-        public Builder engineCapacity(Integer engineCapacity) {
+        public Builder engineCapacity(String engineCapacity) {
             this.engineCapacity = engineCapacity;
             return this;
         }
 
-        public Builder horsepower(Integer horsepower) {
+        public Builder horsepower(String horsepower) {
             this.horsepower = horsepower;
             return this;
         }
@@ -174,11 +174,11 @@ public class CarDetails {
     public String getAuthor() { return author; }
     public Integer getYearOfFabrication() { return yearOfFabrication; }
     public String getWheelSide() { return wheelSide; }
-    public Integer getNrOfSeats() { return nrOfSeats; }
+    public String getNrOfSeats() { return nrOfSeats; }
     public String getBody() { return body; }
-    public Integer getNrOfDoors() { return nrOfDoors; }
-    public Integer getEngineCapacity() { return engineCapacity; }
-    public Integer getHorsepower() { return horsepower; }
+    public String getNrOfDoors() { return nrOfDoors; }
+    public String getEngineCapacity() { return engineCapacity; }
+    public String getHorsepower() { return horsepower; }
     public String getPetrolType() { return petrolType; }
     public String getGearsType() { return gearsType; }
     public String getTractionType() { return tractionType; }

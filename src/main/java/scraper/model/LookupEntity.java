@@ -2,7 +2,7 @@ package scraper.model;
 
 public class LookupEntity {
     private Integer id;
-    private Object name;
+    private String name;
 
     public LookupEntity() {}
 
@@ -12,6 +12,6 @@ public class LookupEntity {
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
-    public Object getName() { return name; }
-    public void setName(Object name) { this.name = name; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 }

@@ -13,7 +13,7 @@ import java.util.List;
 import static scraper.database.DatabaseUtils.setNullableString;
 import static scraper.database.DatabaseUtils.setNullableInt;
 
-class ParticularitiesMapper implements EntityMapper<Particularities> {
+public class ParticularitiesMapper implements EntityMapper<Particularities> {
 
     private static final String INSERT_SQL = """
         INSERT INTO particularities (
