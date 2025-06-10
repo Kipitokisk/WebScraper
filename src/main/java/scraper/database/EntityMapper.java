@@ -8,6 +8,6 @@ import java.util.List;
 
 interface EntityMapper<T> {
     T map(CarDetails carDetails);
-    void save(CarDetails carDetails, Connection conn) throws SQLException;
-    void saveBatch(List<CarDetails> carDetailsList, Connection conn) throws SQLException;
+    void save(CarDetails carDetails) throws SQLException;
+    void saveBatch(List<CarDetails> carDetailsList) throws SQLException;
 }

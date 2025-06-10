@@ -9,7 +9,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import scraper.model.CarDetails;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -28,16 +27,14 @@ class CarsMapperIT {
             .withInitScript("init.sql");
 
     private CarsMapper carsMapper;
+    private DatabaseManager dbManager;
     private Connection connection;
 
     @BeforeEach
     void setUp() throws SQLException {
-        carsMapper = new CarsMapper();
-        connection = DriverManager.getConnection(
-                postgres.getJdbcUrl(),
-                postgres.getUsername(),
-                postgres.getPassword()
-        );
+        dbManager = new DatabaseManager(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+        carsMapper = new CarsMapper(dbManager);
+        connection = dbManager.getConnection();
         clearDatabase();
     }
 
@@ -49,7 +46,8 @@ class CarsMapperIT {
     }
 
     private void clearDatabase() throws SQLException {
-        try (Statement stmt = connection.createStatement()) {
+        try (Connection conn = dbManager.getConnection();
+             Statement stmt = conn.createStatement()) {
             stmt.execute("SET CONSTRAINTS ALL DEFERRED");
             stmt.execute("TRUNCATE TABLE cars, particularities, wheel_side, nr_of_seats, body, " +
                     "nr_of_doors, engine_capacity, horsepower, petrol_type, gears_type, " +
@@ -81,9 +79,10 @@ class CarsMapperIT {
                 .color("Alb")
                 .build();
 
-        carsMapper.save(car, connection);
+        carsMapper.save(car);
 
-        try (Statement stmt = connection.createStatement();
+        try (Connection conn = dbManager.getConnection();
+             Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("""
                      SELECT c.link, c.region, c.mileage, c.price_eur, p.author, p.year_of_fabrication,
                             c.update_date, ad.name as ad_type,
@@ -129,8 +128,9 @@ class CarsMapperIT {
 
     @Test
     void testSaveBatch_EmptyList() throws SQLException {
-        carsMapper.saveBatch(Collections.emptyList(), connection);
-        try (Statement stmt = connection.createStatement();
+        carsMapper.saveBatch(Collections.emptyList());
+        try (Connection conn = dbManager.getConnection();
+             Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT COUNT(*) as count FROM cars")) {
             assertTrue(rs.next());
             assertEquals(0, rs.getInt("count"));

@@ -15,39 +15,42 @@ import static scraper.database.DatabaseUtils.setNullableInt;
 
 class ParticularitiesMapper implements EntityMapper<Particularities> {
 
-    public void prepareParticularitiesStatement(Particularities particularities, PreparedStatement stmt, Connection conn) throws SQLException {
-        String wheelSideName = particularities.getWheelSide() != null ? particularities.getWheelSide().getName() : null;
-        String nrOfSeatsName = particularities.getNrOfSeats() != null ? particularities.getNrOfSeats().getName() : null;
-        String bodyName = particularities.getBody() != null ? particularities.getBody().getName() : null;
-        String nrOfDoorsName = particularities.getNrOfDoors() != null ? particularities.getNrOfDoors().getName() : null;
-        String engineCapacityName = particularities.getEngineCapacity() != null ? particularities.getEngineCapacity().getName() : null;
-        String horsepowerName = particularities.getHorsepower() != null ? particularities.getHorsepower().getName() : null;
-        String petrolTypeName = particularities.getPetrolType() != null ? particularities.getPetrolType().getName() : null;
-        String gearsTypeName = particularities.getGearsType() != null ? particularities.getGearsType().getName() : null;
-        String tractionTypeName = particularities.getTractionType() != null ? particularities.getTractionType().getName() : null;
-        String colorName = particularities.getColor() != null ? particularities.getColor().getName() : null;
+    private static final String INSERT_SQL = """
+        INSERT INTO particularities (
+            author, year_of_fabrication, wheel_side_id, nr_of_seats_id, body_id, nr_of_doors_id,
+            engine_capacity_id, horsepower_id, petrol_type_id,
+            gears_type_id, traction_type_id, color_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+        """;
 
-        LookupEntityMapper wheelSideMapper = new LookupEntityMapper("wheel_side", wheelSideName);
-        LookupEntityMapper nrOfSeatsMapper = new LookupEntityMapper("nr_of_seats", nrOfSeatsName);
-        LookupEntityMapper bodyMapper = new LookupEntityMapper("body", bodyName);
-        LookupEntityMapper nrOfDoorsMapper = new LookupEntityMapper("nr_of_doors", nrOfDoorsName);
-        LookupEntityMapper engineCapacityMapper = new LookupEntityMapper("engine_capacity", engineCapacityName);
-        LookupEntityMapper horsepowerMapper = new LookupEntityMapper("horsepower", horsepowerName);
-        LookupEntityMapper petrolTypeMapper = new LookupEntityMapper("petrol_type", petrolTypeName);
-        LookupEntityMapper gearsTypeMapper = new LookupEntityMapper("gears_type", gearsTypeName);
-        LookupEntityMapper tractionTypeMapper = new LookupEntityMapper("traction_type", tractionTypeName);
-        LookupEntityMapper colorMapper = new LookupEntityMapper("color", colorName);
+    private final DatabaseManager dbManager;
 
-        Integer wheelSideId = wheelSideMapper.getOrInsertLookup(conn);
-        Integer nrOfSeatsId = nrOfSeatsMapper.getOrInsertLookup(conn);
-        Integer bodyId = bodyMapper.getOrInsertLookup(conn);
-        Integer nrOfDoorsId = nrOfDoorsMapper.getOrInsertLookup(conn);
-        Integer engineCapacityId = engineCapacityMapper.getOrInsertLookup(conn);
-        Integer horsepowerId = horsepowerMapper.getOrInsertLookup(conn);
-        Integer petrolTypeId = petrolTypeMapper.getOrInsertLookup(conn);
-        Integer gearsTypeId = gearsTypeMapper.getOrInsertLookup(conn);
-        Integer tractionTypeId = tractionTypeMapper.getOrInsertLookup(conn);
-        Integer colorId = colorMapper.getOrInsertLookup(conn);
+    public ParticularitiesMapper(DatabaseManager dbManager) {
+        this.dbManager = dbManager;
+    }
+
+    private void prepareParticularitiesStatement(Particularities particularities, PreparedStatement stmt, Connection conn) throws SQLException {
+        String wheelSideName = getName(particularities.getWheelSide());
+        String nrOfSeatsName = getName(particularities.getNrOfSeats());
+        String bodyName = getName(particularities.getBody());
+        String nrOfDoorsName = getName(particularities.getNrOfDoors());
+        String engineCapacityName = getName(particularities.getEngineCapacity());
+        String horsepowerName = getName(particularities.getHorsepower());
+        String petrolTypeName = getName(particularities.getPetrolType());
+        String gearsTypeName = getName(particularities.getGearsType());
+        String tractionTypeName = getName(particularities.getTractionType());
+        String colorName = getName(particularities.getColor());
+
+        Integer wheelSideId = new LookupEntityMapper("wheel_side", dbManager).getOrInsertLookup(wheelSideName);
+        Integer nrOfSeatsId = new LookupEntityMapper("nr_of_seats", dbManager).getOrInsertLookup(nrOfSeatsName);
+        Integer bodyId = new LookupEntityMapper("body", dbManager).getOrInsertLookup(bodyName);
+        Integer nrOfDoorsId = new LookupEntityMapper("nr_of_doors", dbManager).getOrInsertLookup(nrOfDoorsName);
+        Integer engineCapacityId = new LookupEntityMapper("engine_capacity", dbManager).getOrInsertLookup(engineCapacityName);
+        Integer horsepowerId = new LookupEntityMapper("horsepower", dbManager).getOrInsertLookup(horsepowerName);
+        Integer petrolTypeId = new LookupEntityMapper("petrol_type", dbManager).getOrInsertLookup(petrolTypeName);
+        Integer gearsTypeId = new LookupEntityMapper("gears_type", dbManager).getOrInsertLookup(gearsTypeName);
+        Integer tractionTypeId = new LookupEntityMapper("traction_type", dbManager).getOrInsertLookup(tractionTypeName);
+        Integer colorId = new LookupEntityMapper("color", dbManager).getOrInsertLookup(colorName);
 
         setNullableString(stmt, 1, particularities.getAuthor());
         setNullableInt(stmt, 2, particularities.getYearOfFabrication());
@@ -63,58 +66,52 @@ class ParticularitiesMapper implements EntityMapper<Particularities> {
         setNullableInt(stmt, 12, colorId);
     }
 
-
-    @Override
-    public Particularities map(CarDetails carDetails) {
-        Particularities particularities = new Particularities();
-        particularities.setAuthor(carDetails.getAuthor());
-        particularities.setYearOfFabrication(carDetails.getYearOfFabrication());
-        particularities.setWheelSide(carDetails.getWheelSide() != null ? new LookupEntity(carDetails.getWheelSide()) : null);
-        particularities.setNrOfSeats(carDetails.getNrOfSeats() != null ? new LookupEntity(String.valueOf(carDetails.getNrOfSeats())) : null);
-        particularities.setBody(carDetails.getBody() != null ? new LookupEntity(carDetails.getBody()) : null);
-        particularities.setNrOfDoors(carDetails.getNrOfDoors() != null ? new LookupEntity(String.valueOf(carDetails.getNrOfDoors())) : null);
-        particularities.setEngineCapacity(carDetails.getEngineCapacity() != null ? new LookupEntity(String.valueOf(carDetails.getEngineCapacity())) : null);
-        particularities.setHorsepower(carDetails.getHorsepower() != null ? new LookupEntity(String.valueOf(carDetails.getHorsepower())) : null);
-        particularities.setPetrolType(carDetails.getPetrolType() != null ? new LookupEntity(carDetails.getPetrolType()) : null);
-        particularities.setGearsType(carDetails.getGearsType() != null ? new LookupEntity(carDetails.getGearsType()) : null);
-        particularities.setTractionType(carDetails.getTractionType() != null ? new LookupEntity(carDetails.getTractionType()) : null);
-        particularities.setColor(carDetails.getColor() != null ? new LookupEntity(carDetails.getColor()) : null);
-
-        return particularities;
+    private String getName(LookupEntity entity) {
+        return entity != null ? String.valueOf(entity.getName()) : null;
     }
 
     @Override
-    public void save(CarDetails carDetails, Connection conn) throws SQLException {
-        Particularities particularities = map(carDetails);
-        String insertSql = """
-            INSERT INTO particularities (
-                author, year_of_fabrication, wheel_side_id, nr_of_seats_id, body_id, nr_of_doors_id,
-                engine_capacity_id, horsepower_id, petrol_type_id,
-                gears_type_id, traction_type_id, color_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-            """;
-        try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
-            prepareParticularitiesStatement(particularities, stmt, conn);
+    public Particularities map(CarDetails carDetails) {
+        Particularities p = new Particularities();
+        p.setAuthor(carDetails.getAuthor());
+        p.setYearOfFabrication(carDetails.getYearOfFabrication());
+        p.setWheelSide(toEntity(carDetails.getWheelSide()));
+        p.setNrOfSeats(toEntity(carDetails.getNrOfSeats()));
+        p.setBody(toEntity(carDetails.getBody()));
+        p.setNrOfDoors(toEntity(carDetails.getNrOfDoors()));
+        p.setEngineCapacity(toEntity(carDetails.getEngineCapacity()));
+        p.setHorsepower(toEntity(carDetails.getHorsepower()));
+        p.setPetrolType(toEntity(carDetails.getPetrolType()));
+        p.setGearsType(toEntity(carDetails.getGearsType()));
+        p.setTractionType(toEntity(carDetails.getTractionType()));
+        p.setColor(toEntity(carDetails.getColor()));
+        return p;
+    }
+
+    private LookupEntity toEntity(Object val) {
+        return val != null ? new LookupEntity(String.valueOf(val)) : null;
+    }
+
+    @Override
+    public void save(CarDetails carDetails) throws SQLException {
+        Particularities p = map(carDetails);
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = dbManager.prepareStatement(conn, INSERT_SQL)){
+            prepareParticularitiesStatement(p, stmt, conn);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
-                particularities.setId(rs.getInt("id"));
+                p.setId(rs.getInt("id"));
             }
         }
     }
 
     @Override
-    public void saveBatch(List<CarDetails> carDetailsList, Connection conn) throws SQLException {
-        String insertSql = """
-            INSERT INTO particularities (
-                author, year_of_fabrication, wheel_side_id, nr_of_seats_id, body_id, nr_of_doors_id,
-                engine_capacity_id, horsepower_id, petrol_type_id,
-                gears_type_id, traction_type_id, color_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-            """;
-        try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
+    public void saveBatch(List<CarDetails> carDetailsList) throws SQLException {
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = dbManager.prepareStatement(conn, INSERT_SQL)){
             for (CarDetails carDetails : carDetailsList) {
-                Particularities particularities = map(carDetails);
-                prepareParticularitiesStatement(particularities, stmt, conn);
+                Particularities p = map(carDetails);
+                prepareParticularitiesStatement(p, stmt, conn);
                 stmt.addBatch();
             }
             stmt.executeBatch();
@@ -122,20 +119,13 @@ class ParticularitiesMapper implements EntityMapper<Particularities> {
     }
 
     public long saveAndReturnId(CarDetails carDetails, Connection conn) throws SQLException {
-        Particularities particularities = map(carDetails);
-        String insertSql = """
-            INSERT INTO particularities (
-                author, year_of_fabrication, wheel_side_id, nr_of_seats_id, body_id, nr_of_doors_id,
-                engine_capacity_id, horsepower_id, petrol_type_id,
-                gears_type_id, traction_type_id, color_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-            """;
-        try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
-            prepareParticularitiesStatement(particularities, stmt, conn);
+        Particularities p = map(carDetails);
+        try (PreparedStatement stmt = conn.prepareStatement(INSERT_SQL)) {
+            prepareParticularitiesStatement(p, stmt, conn);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
-                particularities.setId(rs.getInt("id"));
-                return particularities.getId();
+                p.setId(rs.getInt("id"));
+                return p.getId();
             }
         }
         return -1;

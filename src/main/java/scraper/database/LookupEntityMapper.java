@@ -9,30 +9,37 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
-class LookupEntityMapper implements EntityMapper<LookupEntity> {
-    private final String tableName;
-    private final String value;
+import static scraper.database.DatabaseUtils.setNullableString;
 
-    public LookupEntityMapper(String tableName, String value) {
+public class LookupEntityMapper implements EntityMapper<LookupEntity> {
+    private static final String SELECT_SQL = "SELECT id FROM %s WHERE \"name\" = ?";
+    private static final String INSERT_SQL = "INSERT INTO %s (\"name\") VALUES (?) ON CONFLICT (\"name\") DO NOTHING RETURNING id";
+
+    private final String tableName;
+    private final DatabaseManager dbManager;
+
+    public LookupEntityMapper(String tableName, DatabaseManager dbManager) {
         this.tableName = tableName;
-        this.value = value;
+        this.dbManager = dbManager;
     }
 
-    public Integer getOrInsertLookup(Connection conn) throws SQLException {
+    Integer getOrInsertLookup(String value) throws SQLException {
         if (value == null) return null;
 
-        String selectSql = "SELECT id FROM " + tableName + " WHERE \"name\" = ?";
-        try (PreparedStatement stmt = conn.prepareStatement(selectSql)) {
-            stmt.setString(1, value);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) return rs.getInt("id");
-        }
+        try (Connection conn = dbManager.getConnection()) {
+            String selectSql = String.format(SELECT_SQL, tableName);
+            try (PreparedStatement stmt = dbManager.prepareStatement(conn, selectSql)) {
+                setNullableString(stmt, 1, value);
+                ResultSet rs = stmt.executeQuery();
+                if (rs.next()) return rs.getInt("id");
+            }
 
-        String insertSql = "INSERT INTO " + tableName + " (\"name\") VALUES (?) RETURNING id";
-        try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
-            stmt.setString(1, value);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) return rs.getInt("id");
+            String insertSql = String.format(INSERT_SQL, tableName);
+            try (PreparedStatement stmt = dbManager.prepareStatement(conn, insertSql)) {
+                setNullableString(stmt, 1, value);
+                ResultSet rs = stmt.executeQuery();
+                if (rs.next()) return rs.getInt("id");
+            }
         }
 
         return null;
@@ -40,20 +47,24 @@ class LookupEntityMapper implements EntityMapper<LookupEntity> {
 
     @Override
     public LookupEntity map(CarDetails carDetails) {
-        return new LookupEntity(value);
+        return new LookupEntity(null);
     }
 
     @Override
-    public void save(CarDetails carDetails, Connection conn) throws SQLException {
+    public void save(CarDetails carDetails) throws SQLException {
         LookupEntity entity = map(carDetails);
-        Integer id = getOrInsertLookup(conn);
+        String value = carDetails.getAdType() != null ? carDetails.getAdType() : null;
+        Integer id = getOrInsertLookup(value);
         entity.setId(id);
     }
 
     @Override
-    public void saveBatch(List<CarDetails> carDetailsList, Connection conn) throws SQLException {
+    public void saveBatch(List<CarDetails> carDetailsList) throws SQLException {
         for (CarDetails carDetails : carDetailsList) {
-            save(carDetails, conn);
+            LookupEntity entity = map(carDetails);
+            String value = carDetails.getAdType() != null ? carDetails.getAdType() : null;
+            Integer id = getOrInsertLookup(value);
+            entity.setId(id);
         }
     }
 }

@@ -1,7 +1,7 @@
 package scraper.database;
 
-import scraper.model.Cars;
 import scraper.model.CarDetails;
+import scraper.model.Cars;
 import scraper.model.LookupEntity;
 
 import java.sql.Connection;
@@ -11,23 +11,33 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.List;
 
-import static scraper.database.DatabaseUtils.setNullableString;
 import static scraper.database.DatabaseUtils.setNullableInt;
+import static scraper.database.DatabaseUtils.setNullableString;
 import static scraper.database.DatabaseUtils.parseRomanianDate;
 
-class CarsMapper implements EntityMapper<Cars> {
-    private final ParticularitiesMapper particularitiesMapper;
+public class CarsMapper implements EntityMapper<Cars> {
 
-    public CarsMapper() {
-        this.particularitiesMapper = new ParticularitiesMapper();
+    private static final String INSERT_SQL = """
+        INSERT INTO cars (
+            link, region, mileage, price_eur, update_date, ad_type_id, particularities_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
+        """;
+
+    private final ParticularitiesMapper particularitiesMapper;
+    private final DatabaseManager dbManager;
+
+    public CarsMapper(DatabaseManager dbManager) {
+        this.dbManager = dbManager;
+        this.particularitiesMapper = new ParticularitiesMapper(dbManager);
     }
 
-    public void prepareCarStatement(Cars car, PreparedStatement stmt, String cleanLink, long particularitiesId,
-                                    Connection conn) throws SQLException {
+    private void prepareCarStatement(Cars car, PreparedStatement stmt, String cleanLink, long particularitiesId,
+                                     Connection conn) throws SQLException {
         setNullableString(stmt, 1, cleanLink);
         setNullableString(stmt, 2, car.getRegion());
         setNullableInt(stmt, 3, car.getMileage());
         setNullableInt(stmt, 4, car.getPriceEur());
+
         Timestamp timestamp = parseRomanianDate(car.getUpdateDate());
         if (timestamp == null) {
             stmt.setNull(5, Types.TIMESTAMP);
@@ -35,9 +45,9 @@ class CarsMapper implements EntityMapper<Cars> {
             stmt.setTimestamp(5, timestamp);
         }
 
-        String adTypeName = car.getAdType() != null ? car.getAdType().getName() : null;
-        LookupEntityMapper adTypeMapper = new LookupEntityMapper("ad_type", adTypeName);
-        Integer adTypeId = adTypeMapper.getOrInsertLookup(conn);
+        String adTypeName = car.getAdType() != null ? String.valueOf(car.getAdType().getName()) : null;
+        LookupEntityMapper adTypeMapper = new LookupEntityMapper("ad_type", dbManager);
+        Integer adTypeId = adTypeMapper.getOrInsertLookup(adTypeName);
         setNullableInt(stmt, 6, adTypeId);
         stmt.setLong(7, particularitiesId);
     }
@@ -52,34 +62,26 @@ class CarsMapper implements EntityMapper<Cars> {
         cars.setUpdateDate(carDetails.getUpdateDate());
         cars.setAdType(carDetails.getAdType() != null ? new LookupEntity(carDetails.getAdType()) : null);
         cars.setParticularities(particularitiesMapper.map(carDetails));
-
         return cars;
     }
 
     @Override
-    public void save(CarDetails carDetails, Connection conn) throws SQLException {
-        Cars car = map(carDetails);
-        long particularitiesId = particularitiesMapper.saveAndReturnId(carDetails, conn);
-        String cleanLink = car.getLink().split("\\?")[0];
-        String insertSql = """
-            INSERT INTO cars (
-                link, region, mileage, price_eur, update_date, ad_type_id, particularities_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
-            """;
-        try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
+    public void save(CarDetails carDetails) throws SQLException {
+        try (Connection conn = dbManager.getConnection();
+        PreparedStatement stmt = dbManager.prepareStatement(conn, INSERT_SQL)){
+            Cars car = map(carDetails);
+            long particularitiesId = particularitiesMapper.saveAndReturnId(carDetails, conn);
+            String cleanLink = car.getLink().split("\\?")[0];
+
             prepareCarStatement(car, stmt, cleanLink, particularitiesId, conn);
             stmt.executeUpdate();
         }
     }
 
     @Override
-    public void saveBatch(List<CarDetails> carDetailsList, Connection conn) throws SQLException {
-        String insertSql = """
-            INSERT INTO cars (
-                link, region, mileage, price_eur, update_date, ad_type_id, particularities_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
-            """;
-        try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
+    public void saveBatch(List<CarDetails> carDetailsList) throws SQLException {
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = dbManager.prepareStatement(conn, INSERT_SQL)) {
             for (CarDetails carDetails : carDetailsList) {
                 Cars car = map(carDetails);
                 long particularitiesId = particularitiesMapper.saveAndReturnId(carDetails, conn);

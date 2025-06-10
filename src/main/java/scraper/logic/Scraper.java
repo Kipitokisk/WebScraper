@@ -8,6 +8,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
+import scraper.database.CarsMapper;
 import scraper.model.CarDetails;
 import scraper.database.DatabaseManager;
 
@@ -35,6 +36,7 @@ public class Scraper {
     private final String searchUrl;
     private final DatabaseManager dbManager;
     private final HttpClient client;
+    private final CarsMapper carsMapper;
     private String carBrand = System.getenv("CAR_BRAND");
     private String carModel = System.getenv("CAR_MODEL");
 
@@ -44,6 +46,7 @@ public class Scraper {
         this.dbManager = dbManager;
         this.logger = logger;
         this.client = client;
+        this.carsMapper = new CarsMapper(dbManager);
     }
 
     public void scrape() throws IOException, InterruptedException, SQLException {
@@ -365,7 +368,7 @@ public class Scraper {
             return;
         }
 
-        dbManager.saveCars(finalProducts);
+        carsMapper.saveBatch(finalProducts);
         printResults(finalProducts);
     }
 

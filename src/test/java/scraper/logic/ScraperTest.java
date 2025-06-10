@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.slf4j.Logger;
+import scraper.database.CarsMapper;
 import scraper.database.DatabaseManager;
 import scraper.model.CarDetails;
 
@@ -35,6 +36,7 @@ class ScraperTest {
     private PrintStream originalOut = System.out;
     private Logger loggerMock;
     private DatabaseManager dbManagerMock;
+    private CarsMapper carsMapperMock;
     private HttpClient clientMock;
     private HttpResponse<String> responseMock;
 
@@ -44,6 +46,7 @@ class ScraperTest {
         System.setOut(new PrintStream(outContent));
         loggerMock = mock(Logger.class);
         dbManagerMock = mock(DatabaseManager.class);
+        carsMapperMock = mock(CarsMapper.class);
         clientMock = mock(HttpClient.class);
         responseMock = mock(HttpResponse.class);
         scraper = spy(new Scraper("https://999.md",
@@ -876,7 +879,7 @@ class ScraperTest {
         scraper.saveResults(emptyList);
 
         verify(loggerMock).info("No products found.");
-        verify(dbManagerMock, never()).saveCars(any());
+        verify(carsMapperMock, never()).saveBatch(any());
     }
 
     @Test

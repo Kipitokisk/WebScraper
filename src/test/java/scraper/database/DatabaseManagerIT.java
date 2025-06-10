@@ -6,14 +6,12 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import scraper.model.CarDetails;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,27 +20,24 @@ class DatabaseManagerIT {
 
     @Container
     private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
-            .withDatabaseName("scraper_db")
-            .withUsername("postgres")
-            .withPassword("pass")
-            .withInitScript("init.sql");
+            .withDatabaseName("test_db")
+            .withUsername("test_user")
+            .withPassword("test_pass");
 
-    private DatabaseManager databaseManager;
+    private DatabaseManager dbManager;
     private Connection connection;
 
     @BeforeEach
-    void setUp() throws SQLException {
-        databaseManager = new DatabaseManager(
-                postgres.getJdbcUrl(),
-                postgres.getUsername(),
-                postgres.getPassword()
-        );
-        connection = DriverManager.getConnection(
-                postgres.getJdbcUrl(),
-                postgres.getUsername(),
-                postgres.getPassword()
-        );
-        clearDatabase();
+    void setUp() {
+        dbManager = new DatabaseManager(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+        try {
+            connection = dbManager.getConnection();
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute("CREATE TABLE IF NOT EXISTS test_table (id SERIAL PRIMARY KEY, name VARCHAR(255))");
+            }
+        } catch (SQLException e) {
+            fail("Failed to set up test database: " + e.getMessage());
+        }
     }
 
     @AfterEach
@@ -52,141 +47,76 @@ class DatabaseManagerIT {
         }
     }
 
-    private void clearDatabase() throws SQLException {
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("SET CONSTRAINTS ALL DEFERRED");
-            stmt.execute("TRUNCATE TABLE cars, particularities, wheel_side, nr_of_seats, body, " +
-                    "nr_of_doors, engine_capacity, horsepower, petrol_type, gears_type, " +
-                    "traction_type, color, ad_type RESTART IDENTITY CASCADE");
-            stmt.execute("SET CONSTRAINTS ALL IMMEDIATE");
+    @Test
+    void testGetConnection_ValidCredentials() throws SQLException {
+        try (Connection conn = dbManager.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT 1")) {
+            assertTrue(rs.next(), "Query should return a result");
+            assertEquals(1, rs.getInt(1), "Query should return value 1");
+            assertFalse(conn.isClosed(), "Connection should be open");
         }
     }
 
     @Test
-    void testSaveCars_ValidCar() throws SQLException {
-        CarDetails car = new CarDetails.Builder().link("https://999.md/ro/car")
-                .name("Renault Megane 2016")
-                .eurPrice(15000)
-                .mileage(100000)
-                .updateDate(null)
-                .adType("Vând")
-                .region("Orhei")
-                .author("John")
-                .yearOfFabrication(2016)
-                .wheelSide("Stânga")
-                .nrOfSeats(5)
-                .body("Sedan")
-                .nrOfDoors(4)
-                .engineCapacity(1800)
-                .horsepower(132)
-                .petrolType("Benzină")
-                .gearsType("Automat")
-                .tractionType("Față")
-                .color("Alb")
-                .build();
+    void testGetConnection_IndependentConnections() throws SQLException {
+        try (Connection conn1 = dbManager.getConnection();
+             Connection conn2 = dbManager.getConnection()) {
+            assertNotSame(conn1, conn2, "Each getConnection call should return a new connection");
+            assertFalse(conn1.isClosed(), "First connection should be open");
+            assertFalse(conn2.isClosed(), "Second connection should be open");
 
-        databaseManager.saveCars(Collections.singletonList(car));
-
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("""
-                     SELECT c.link, c.region, c.mileage, c.price_eur, p.author, p.year_of_fabrication,
-                            c.update_date, ad.name as ad_type,
-                            ws.name as wheel_side, ns.name as nr_of_seats, b.name as body,
-                            nd.name as nr_of_doors, ec.name as engine_capacity, hp.name as horsepower,
-                            pt.name as petrol_type, gt.name as gears_type, tt.name as traction_type,
-                            cl.name as color
-                     FROM cars c
-                     JOIN particularities p ON c.particularities_id = p.id
-                     JOIN wheel_side ws ON p.wheel_side_id = ws.id
-                     JOIN nr_of_seats ns ON p.nr_of_seats_id = ns.id
-                     JOIN body b ON p.body_id = b.id
-                     JOIN nr_of_doors nd ON p.nr_of_doors_id = nd.id
-                     JOIN engine_capacity ec ON p.engine_capacity_id = ec.id
-                     JOIN horsepower hp ON p.horsepower_id = hp.id
-                     JOIN petrol_type pt ON p.petrol_type_id = pt.id
-                     JOIN gears_type gt ON p.gears_type_id = gt.id
-                     JOIN traction_type tt ON p.traction_type_id = tt.id
-                     JOIN color cl ON p.color_id = cl.id
-                     JOIN ad_type ad ON c.ad_type_id = ad.id
-                     """)) {
-
-            assertTrue(rs.next());
-            assertEquals("https://999.md/ro/car", rs.getString("link"));
-            assertEquals("Orhei", rs.getString("region"));
-            assertEquals(100000, rs.getInt("mileage"));
-            assertEquals(15000, rs.getInt("price_eur"));
-            assertEquals("John", rs.getString("author"));
-            assertEquals(2016, rs.getInt("year_of_fabrication"));
-            assertEquals("Vând", rs.getString("ad_type"));
-            assertEquals("Stânga", rs.getString("wheel_side"));
-            assertEquals("5", rs.getString("nr_of_seats"));
-            assertEquals("Sedan", rs.getString("body"));
-            assertEquals("4", rs.getString("nr_of_doors"));
-            assertEquals("1800", rs.getString("engine_capacity"));
-            assertEquals("132", rs.getString("horsepower"));
-            assertEquals("Benzină", rs.getString("petrol_type"));
-            assertEquals("Automat", rs.getString("gears_type"));
-            assertEquals("Față", rs.getString("traction_type"));
-            assertEquals("Alb", rs.getString("color"));
+            conn1.close();
+            assertTrue(conn1.isClosed(), "First connection should be closed");
+            assertFalse(conn2.isClosed(), "Second connection should remain open");
         }
     }
 
     @Test
-    void testSaveCarsWithNullValues() throws SQLException {
-        CarDetails car = new CarDetails.Builder().link("https://999.md/ro/car")
-                .name(null)
-                .eurPrice(null)
-                .mileage(null)
-                .updateDate(null)
-                .adType(null)
-                .region(null)
-                .author(null)
-                .yearOfFabrication(null)
-                .wheelSide(null)
-                .nrOfSeats(null)
-                .body(null)
-                .nrOfDoors(null)
-                .engineCapacity(null)
-                .horsepower(null)
-                .petrolType(null)
-                .gearsType(null)
-                .tractionType(null)
-                .color(null)
-                .build();
+    void testGetConnection_InvalidCredentials() {
+        DatabaseManager invalidDbManager = new DatabaseManager(
+                postgres.getJdbcUrl(),
+                "wrong_user",
+                "wrong_pass"
+        );
+        SQLException thrown = assertThrows(SQLException.class, invalidDbManager::getConnection,
+                "Should throw SQLException for invalid credentials");
+        assertTrue(thrown.getMessage().contains("authentication failed") || thrown.getMessage().contains("password authentication failed"),
+                "Exception message should indicate authentication failure");
+    }
 
-        databaseManager.saveCars(Collections.singletonList(car));
+    @Test
+    void testPrepareStatement_ValidSql() throws SQLException {
+        String sql = "INSERT INTO test_table (name) VALUES (?)";
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = dbManager.prepareStatement(conn, sql)) {
+            assertNotNull(stmt, "PreparedStatement should not be null");
+            stmt.setString(1, "TestName");
+            int rowsAffected = stmt.executeUpdate();
+            assertEquals(1, rowsAffected, "One row should be inserted");
 
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT * FROM cars JOIN particularities ON cars.particularities_id = particularities.id")) {
-            assertTrue(rs.next());
-            assertEquals("https://999.md/ro/car", rs.getString("link"));
-            assertNull(rs.getString("region"));
-            assertEquals(0, rs.getInt("mileage"));
-            assertEquals(0, rs.getInt("price_eur"));
-            assertNull(rs.getString("update_date"));
-            assertNull(rs.getString("author"));
-            assertEquals(0, rs.getInt("year_of_fabrication"));
-            assertNull(rs.getObject("wheel_side_id"));
-            assertNull(rs.getObject("nr_of_seats_id"));
-            assertNull(rs.getObject("body_id"));
-            assertNull(rs.getObject("nr_of_doors_id"));
-            assertNull(rs.getObject("engine_capacity_id"));
-            assertNull(rs.getObject("horsepower_id"));
-            assertNull(rs.getObject("petrol_type_id"));
-            assertNull(rs.getObject("gears_type_id"));
-            assertNull(rs.getObject("traction_type_id"));
-            assertNull(rs.getObject("color_id"));
-            assertNull(rs.getObject("ad_type_id"));
+            try (Statement verifyStmt = conn.createStatement();
+                 ResultSet rs = verifyStmt.executeQuery("SELECT name FROM test_table WHERE name = 'TestName'")) {
+                assertTrue(rs.next(), "Inserted row should exist");
+                assertEquals("TestName", rs.getString("name"), "Name should match inserted value");
+            }
         }
     }
 
     @Test
-    void testSaveCars_EmptyList() throws SQLException {
-        databaseManager.saveCars(Collections.emptyList());
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) as count FROM cars")) {
-            assertTrue(rs.next());
-            assertEquals(0, rs.getInt("count"));
+    void testPrepareStatement_InvalidSql() throws SQLException {
+        String invalidSql = "INVALID SQL SYNTAX";
+        try (Connection conn = dbManager.getConnection()) {
+            SQLException thrown = assertThrows(SQLException.class,
+                    () -> {
+                        try (PreparedStatement stmt = dbManager.prepareStatement(conn, invalidSql)) {
+                            stmt.execute();
+                        }
+                    },
+                    "Should throw SQLException for invalid SQL");
+            assertTrue(thrown.getMessage().toLowerCase().contains("syntax error"),
+                    "Exception message should indicate syntax error");
         }
     }
+
 }
