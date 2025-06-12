@@ -1,5 +1,12 @@
 package scraper.model;
 
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
+import java.util.HashMap;
+import java.util.Map;
+
 public class CarDetails {
     private final String link;
     private final String name;
@@ -21,147 +28,47 @@ public class CarDetails {
     private final String tractionType;
     private final String color;
 
-    private CarDetails(Builder builder) {
-        this.link = builder.link;
-        this.name = builder.name;
-        this.eurPrice = builder.eurPrice;
-        this.mileage = builder.mileage;
-        this.updateDate = builder.updateDate;
-        this.adType = builder.adType;
-        this.region = builder.region;
-        this.author = builder.author;
-        this.yearOfFabrication = builder.yearOfFabrication;
-        this.wheelSide = builder.wheelSide;
-        this.nrOfSeats = builder.nrOfSeats;
-        this.body = builder.body;
-        this.nrOfDoors = builder.nrOfDoors;
-        this.engineCapacity = builder.engineCapacity;
-        this.horsepower = builder.horsepower;
-        this.petrolType = builder.petrolType;
-        this.gearsType = builder.gearsType;
-        this.tractionType = builder.tractionType;
-        this.color = builder.color;
-    }
+    public CarDetails(Document doc, String baseUrl, String carLink) {
+        this.link = baseUrl + carLink;
 
-    public static class Builder {
-        private String link;
-        private String name;
-        private Integer eurPrice;
-        private Integer mileage;
-        private String updateDate;
-        private String adType;
-        private String region;
-        private String author;
-        private Integer yearOfFabrication;
-        private String wheelSide;
-        private String nrOfSeats;
-        private String body;
-        private String nrOfDoors;
-        private String engineCapacity;
-        private String horsepower;
-        private String petrolType;
-        private String gearsType;
-        private String tractionType;
-        private String color;
-
-        public Builder link(String link) {
-            this.link = link;
-            return this;
+        String title = getTitle(doc);
+        String carBrand = System.getenv("CAR_BRAND");
+        String carModel = System.getenv("CAR_MODEL");
+        if (!title.contains(carBrand + " " + carModel)) {
+            throw new IllegalArgumentException("Invalid car model in title: " + title);
         }
 
-        public Builder name(String name) {
-            this.name = name;
-            return this;
-        }
+        Elements items = doc.select("div.styles_aside__0m8KW");
 
-        public Builder eurPrice(Integer eurPrice) {
-            this.eurPrice = eurPrice;
-            return this;
-        }
+        this.updateDate = getAdInfo(items, "p.styles_date__voWnk");
+        this.adType = getAdInfo(items, "p.styles_type___J9Dy");
+        this.region = getString(items, "span.styles_address__text__duvKg");
+        this.author = getString(items, "a.styles_owner__login__VKE71");
 
-        public Builder mileage(Integer mileage) {
-            this.mileage = mileage;
-            return this;
-        }
+        String eurPriceText = getAdInfo(items, "span.styles_sidebar__main__DaXQC");
+        this.eurPrice = getEurPrice(eurPriceText);
 
-        public Builder updateDate(String updateDate) {
-            this.updateDate = updateDate;
-            return this;
-        }
+        Map<String, String> generalities = new HashMap<>();
+        extractSection(doc, "div.styles_features__left__ON_QP > div.styles_group__aota8 > ul > li", generalities);
+        String generation = generalities.get("Generație");
 
-        public Builder adType(String adType) {
-            this.adType = adType;
-            return this;
-        }
+        Map<String, String> particularities = new HashMap<>();
+        extractSection(doc, "div.styles_features__right__Sn6fV > div.styles_group__aota8 > ul > li", particularities);
 
-        public Builder region(String region) {
-            this.region = region;
-            return this;
-        }
+        this.name = title + (generation != null ? " " + generation : "");
 
-        public Builder author(String author) {
-            this.author = author;
-            return this;
-        }
-
-        public Builder yearOfFabrication(Integer yearOfFabrication) {
-            this.yearOfFabrication = yearOfFabrication;
-            return this;
-        }
-
-        public Builder wheelSide(String wheelSide) {
-            this.wheelSide = wheelSide;
-            return this;
-        }
-
-        public Builder nrOfSeats(String nrOfSeats) {
-            this.nrOfSeats = nrOfSeats;
-            return this;
-        }
-
-        public Builder body(String body) {
-            this.body = body;
-            return this;
-        }
-
-        public Builder nrOfDoors(String nrOfDoors) {
-            this.nrOfDoors = nrOfDoors;
-            return this;
-        }
-
-        public Builder engineCapacity(String engineCapacity) {
-            this.engineCapacity = engineCapacity;
-            return this;
-        }
-
-        public Builder horsepower(String horsepower) {
-            this.horsepower = horsepower;
-            return this;
-        }
-
-        public Builder petrolType(String petrolType) {
-            this.petrolType = petrolType;
-            return this;
-        }
-
-        public Builder gearsType(String gearsType) {
-            this.gearsType = gearsType;
-            return this;
-        }
-
-        public Builder tractionType(String tractionType) {
-            this.tractionType = tractionType;
-            return this;
-        }
-
-        public Builder color(String color) {
-            this.color = color;
-            return this;
-        }
-
-        public CarDetails build() {
-            return new CarDetails(this);
-        }
+        this.yearOfFabrication = getIntegerFromSection(particularities, "An de fabricație");
+        this.wheelSide = particularities.get("Volan");
+        this.body = particularities.get("Tip caroserie");
+        this.color = particularities.get("Culoare");
+        this.nrOfSeats = particularities.get("Număr de locuri");
+        this.nrOfDoors = particularities.get("Număr uși");
+        this.engineCapacity = particularities.get("Capacitate cilindrică");
+        this.horsepower = particularities.get("Putere");
+        this.petrolType = particularities.get("Tip combustibil");
+        this.gearsType = particularities.get("Cutie de viteze");
+        this.tractionType = particularities.get("Tip tracțiune");
+        this.mileage = getIntegerFromSection(particularities, "Rulaj");
     }
 
     public String getLink() { return link; }
@@ -183,4 +90,71 @@ public class CarDetails {
     public String getGearsType() { return gearsType; }
     public String getTractionType() { return tractionType; }
     public String getColor() { return color; }
+
+    Integer getIntegerFromSection(Map<String, String> map, String element) {
+        Integer result = null;
+        String text = map.get(element);
+        if (text != null) {
+            try {
+                result = Integer.parseInt(text.replaceAll("\\D", ""));
+            } catch (NumberFormatException e) {
+                throw new NumberFormatException(e.getMessage());
+            }
+        }
+        return result;
+    }
+
+    void extractSection(Document doc, String cssQuery, Map<String, String> map) {
+        Elements generalitiesItems = doc.select(cssQuery);
+        for (Element item : generalitiesItems) {
+            Element keyElement = item.selectFirst("span.styles_group__key__uRhnQ");
+            Element valueElement = item.selectFirst("span.styles_group__value__XN7OI, a.styles_group__value__XN7OI");
+            if (keyElement != null && valueElement != null) {
+                map.put(keyElement.text(), valueElement.text());
+            }
+        }
+    }
+
+    Integer getEurPrice(String eurPriceText) {
+        Integer result = null;
+        if (eurPriceText == null) {
+            throw new NullPointerException("Price empty.");
+        }
+        try {
+            if (eurPriceText.contains("€")) {
+                result = Integer.parseInt(eurPriceText.replaceAll("\\D", ""));
+            }
+        } catch (NumberFormatException e) {
+            throw new NumberFormatException(e.getMessage());
+        }
+        return result;
+    }
+
+    String getTitle(Document doc) {
+        String result = null;
+        Element titleElement = doc.selectFirst("h1");
+        if (titleElement != null) {
+            result = titleElement.text();
+        }
+        return result;
+    }
+
+    String getAdInfo(Elements items, String cssQuery) {
+        String result = null;
+        Element element = items.selectFirst(cssQuery);
+        if (element != null) {
+            String text = element.text();
+            result = text.substring(text.indexOf(":") + 1).trim();
+        }
+        return result;
+    }
+
+    String getString(Elements items, String cssQuery) {
+        String result = null;
+        Element element = items.selectFirst(cssQuery);
+        if (element != null) {
+            result = element.text();
+        }
+        return result;
+    }
 }

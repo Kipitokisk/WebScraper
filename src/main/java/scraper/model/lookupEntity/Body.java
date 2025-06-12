@@ -1,6 +1,6 @@
-package scraper.model;
+package scraper.model.lookupEntity;
 
-public class Body extends LookupEntity{
+public class Body extends LookupEntity {
     public Body() {}
 
     public Body(String name) {

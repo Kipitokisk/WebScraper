@@ -1,6 +1,6 @@
-package scraper.model;
+package scraper.model.lookupEntity;
 
-public class AdType extends LookupEntity{
+public class AdType extends LookupEntity {
     public AdType() {}
 
     public AdType(String name) {

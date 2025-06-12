@@ -1,39 +1,34 @@
 package scraper.database;
 
-import scraper.model.CarDetails;
-import scraper.model.Cars;
-import scraper.model.LookupEntity;
+import scraper.database.registry.LookupEntityRegistry;
+import scraper.database.registry.ParticularitiesRegistry;
+import scraper.model.*;
+import scraper.model.lookupEntity.AdType;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 import java.util.List;
 
-import static scraper.database.DatabaseUtils.setNullableInt;
-import static scraper.database.DatabaseUtils.setNullableString;
-import static scraper.database.DatabaseUtils.parseRomanianDate;
+import static scraper.database.DatabaseUtils.*;
 
 public class CarsMapper implements EntityMapper<Cars> {
-
     private static final String INSERT_SQL = """
         INSERT INTO cars (
             link, region, mileage, price_eur, update_date, ad_type_id, particularities_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
         """;
 
-    private final ParticularitiesMapper particularitiesMapper;
     private final DatabaseManager dbManager;
+    private final LookupEntityRegistry lookupRegistry;
+    private final ParticularitiesRegistry particularitiesRegistry;
 
-    public CarsMapper(DatabaseManager dbManager) {
+    public CarsMapper(LookupEntityRegistry lookupRegistry, ParticularitiesRegistry particularitiesRegistry, DatabaseManager dbManager) {
         this.dbManager = dbManager;
-        this.particularitiesMapper = new ParticularitiesMapper(dbManager);
+        this.lookupRegistry = lookupRegistry;
+        this.particularitiesRegistry = particularitiesRegistry;
     }
 
-    private void prepareCarStatement(Cars car, PreparedStatement stmt, String cleanLink, long particularitiesId,
-                                     Connection conn) throws SQLException {
-        setNullableString(stmt, 1, cleanLink);
+    private void prepareCarStatement(Cars car, PreparedStatement stmt) throws SQLException {
+        setNullableString(stmt, 1, car.getLink());
         setNullableString(stmt, 2, car.getRegion());
         setNullableInt(stmt, 3, car.getMileage());
         setNullableInt(stmt, 4, car.getPriceEur());
@@ -45,11 +40,10 @@ public class CarsMapper implements EntityMapper<Cars> {
             stmt.setTimestamp(5, timestamp);
         }
 
-        String adTypeName = car.getAdType() != null ? String.valueOf(car.getAdType().getName()) : null;
-        LookupEntityMapper adTypeMapper = new LookupEntityMapper("ad_type", dbManager);
-        Integer adTypeId = adTypeMapper.getOrInsertLookup(adTypeName);
+        String adTypeName = car.getAdType() != null ? car.getAdType().getName() : null;
+        Integer adTypeId = lookupRegistry.getAdTypeId(adTypeName);
         setNullableInt(stmt, 6, adTypeId);
-        stmt.setLong(7, particularitiesId);
+        stmt.setLong(7, car.getParticularities());
     }
 
     @Override
@@ -60,22 +54,9 @@ public class CarsMapper implements EntityMapper<Cars> {
         cars.setMileage(carDetails.getMileage());
         cars.setPriceEur(carDetails.getEurPrice());
         cars.setUpdateDate(carDetails.getUpdateDate());
-        cars.setAdType(carDetails.getAdType() != null ? new LookupEntity(carDetails.getAdType()) : null);
-        cars.setParticularities(particularitiesMapper.map(carDetails));
+        cars.setAdType(carDetails.getAdType() != null ? new AdType(carDetails.getAdType()) : null);
+        cars.setParticularities(particularitiesRegistry.getParticularitiesId(carDetails.getLink()));
         return cars;
-    }
-
-    @Override
-    public void save(CarDetails carDetails) throws SQLException {
-        try (Connection conn = dbManager.getConnection();
-        PreparedStatement stmt = dbManager.prepareStatement(conn, INSERT_SQL)){
-            Cars car = map(carDetails);
-            long particularitiesId = particularitiesMapper.saveAndReturnId(carDetails, conn);
-            String cleanLink = car.getLink().split("\\?")[0];
-
-            prepareCarStatement(car, stmt, cleanLink, particularitiesId, conn);
-            stmt.executeUpdate();
-        }
     }
 
     @Override
@@ -84,9 +65,7 @@ public class CarsMapper implements EntityMapper<Cars> {
              PreparedStatement stmt = dbManager.prepareStatement(conn, INSERT_SQL)) {
             for (CarDetails carDetails : carDetailsList) {
                 Cars car = map(carDetails);
-                long particularitiesId = particularitiesMapper.saveAndReturnId(carDetails, conn);
-                String cleanLink = car.getLink().split("\\?")[0];
-                prepareCarStatement(car, stmt, cleanLink, particularitiesId, conn);
+                prepareCarStatement(car, stmt);
                 stmt.addBatch();
             }
             stmt.executeBatch();

@@ -1,6 +1,7 @@
-package scraper.database;
+package scraper.database.lookupEntityMappers;
 
-import scraper.model.GearsType;
+import scraper.database.DatabaseManager;
+import scraper.model.lookupEntity.GearsType;
 
 public class GearsTypeMapper extends LookupEntityMapper<GearsType> {
     public GearsTypeMapper(DatabaseManager dbManager) {

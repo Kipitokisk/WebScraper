@@ -1,6 +1,7 @@
-package scraper.database;
+package scraper.database.lookupEntityMappers;
 
-import scraper.model.NrOfDoors;
+import scraper.database.DatabaseManager;
+import scraper.model.lookupEntity.NrOfDoors;
 
 public class NrOfDoorsMapper extends LookupEntityMapper<NrOfDoors> {
     public NrOfDoorsMapper(DatabaseManager dbManager) {

@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import scraper.database.*;
+import scraper.database.registry.LookupEntityRegistry;
+import scraper.database.registry.ParticularitiesRegistry;
 import scraper.model.*;
 
 import java.io.IOException;
@@ -33,105 +33,82 @@ public class Scraper {
     private final Logger logger;
     private final String baseUrl;
     private final String searchUrl;
-    private final DatabaseManager dbManager;
     private final HttpClient client;
-    private final CarsMapper carsMapper;
-    private final AdTypeMapper adTypeMapper;
-    private final BodyMapper bodyMapper;
-    private final ColorMapper colorMapper;
-    private final EngineCapacityMapper engineCapacityMapper;
-    private final GearsTypeMapper gearsTypeMapper;
-    private final HorsepowerMapper horsepowerMapper;
-    private final NrOfDoorsMapper nrOfDoorsMapper;
-    private final NrOfSeatsMapper nrOfSeatsMapper;
-    private final PetrolTypeMapper petrolTypeMapper;
-    private final WheelSideMapper wheelSideMapper;
-    private final TractionTypeMapper tractionTypeMapper;
-    private final ParticularitiesMapper particularitiesMapper;
-    private String carBrand = System.getenv("CAR_BRAND");
-    private String carModel = System.getenv("CAR_MODEL");
-
-    private final Set<String> wheelSideSet = new HashSet<>();
-    private final Set<String> nrOfSeatsSet = new HashSet<>();
-    private final Set<String> bodySet = new HashSet<>();
-    private final Set<String> nrOfDoorsSet = new HashSet<>();
-    private final Set<String> engineCapacitySet = new HashSet<>();
-    private final Set<String> horsepowerSet = new HashSet<>();
-    private final Set<String> petrolTypeSet = new HashSet<>();
-    private final Set<String> gearsTypeSet = new HashSet<>();
-    private final Set<String> tractionTypeSet = new HashSet<>();
-    private final Set<String> colorSet = new HashSet<>();
-    private final Set<String> adTypeSet = new HashSet<>();
-
-    private List<WheelSide> wheelSides = new ArrayList<>();
-    private List<NrOfSeats> nrOfSeatsList = new ArrayList<>();
-    private List<Body> bodies = new ArrayList<>();
-    private List<NrOfDoors> nrOfDoorsList = new ArrayList<>();
-    private List<EngineCapacity> engineCapacities = new ArrayList<>();
-    private List<Horsepower> horsepowers = new ArrayList<>();
-    private List<PetrolType> petrolTypes = new ArrayList<>();
-    private List<GearsType> gearsTypes = new ArrayList<>();
-    private List<TractionType> tractionTypes = new ArrayList<>();
-    private List<Color> colors = new ArrayList<>();
-    private List<AdType> adTypes = new ArrayList<>();
+    private final DatabaseManager dbManager;
 
     public Scraper(String baseUrl, String searchUrl, DatabaseManager dbManager, Logger logger, HttpClient client) {
         this.baseUrl = baseUrl;
         this.searchUrl = searchUrl;
-        this.dbManager = dbManager;
         this.logger = logger;
         this.client = client;
-        this.adTypeMapper = new AdTypeMapper(dbManager);
-        this.bodyMapper = new BodyMapper(dbManager);
-        this.colorMapper = new ColorMapper(dbManager);
-        this.engineCapacityMapper = new EngineCapacityMapper(dbManager);
-        this.gearsTypeMapper = new GearsTypeMapper(dbManager);
-        this.horsepowerMapper = new HorsepowerMapper(dbManager);
-        this.nrOfDoorsMapper = new NrOfDoorsMapper(dbManager);
-        this.nrOfSeatsMapper = new NrOfSeatsMapper(dbManager);
-        this.petrolTypeMapper = new PetrolTypeMapper(dbManager);
-        this.tractionTypeMapper = new TractionTypeMapper(dbManager);
-        this.wheelSideMapper = new WheelSideMapper(dbManager);
-        this.particularitiesMapper = new ParticularitiesMapper(dbManager);
-        this.carsMapper = new CarsMapper(dbManager);
+        this.dbManager = dbManager;
     }
 
     public void scrape() throws IOException, InterruptedException, SQLException {
-        List<CarDetails> finalProducts = new ArrayList<>();
-        processCars(finalProducts);
+        List<CarDetails> finalProducts = processCars();
         saveResults(finalProducts);
     }
 
-    void processCars(List<CarDetails> finalProducts) throws IOException, InterruptedException {
+    List<CarDetails> processCars() throws IOException, InterruptedException {
         String url = System.getenv("GRAPH_QL_URL");
         String paramFeature = System.getenv("GRAPH_QL_PARAM_FEATURE");
         String paramOption = System.getenv("GRAPH_QL_PARAM_OPTION");
         List<String> adIds = fetchAdIds(url, paramFeature, paramOption);
         List<Future<CarDetails>> futures = new ArrayList<>();
-        ExecutorService executor = Executors.newFixedThreadPool(20);
+        ExecutorService executor = Executors.newFixedThreadPool(10);
         logger.info("Fetched {} ad IDs", adIds.size());
 
         extractEachCarDetail(adIds, futures, executor);
-        fetchCarDetails(finalProducts, futures);
+        List<CarDetails> carDetails = fetchCarDetails(futures);
         executor.shutdown();
+        return carDetails;
     }
 
     void extractEachCarDetail(List<String> adIds, List<Future<CarDetails>> futures, ExecutorService executor) {
         for (String adId : adIds) {
             String carLink = "/ro/" + adId;
-            futures.add(executor.submit(() -> extractDetailedCarInfo(carLink)));
+            futures.add(executor.submit(() -> getCarDetails(carLink)));
         }
     }
 
-    void fetchCarDetails(List<CarDetails> finalProducts, List<Future<CarDetails>> futures) throws InterruptedException {
+    private CarDetails getCarDetails(String carLink) throws InterruptedException {
+        try {
+            long delay = 500 + new Random().nextLong(500);
+            Thread.sleep(delay);
+            return getDetails(carLink);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw e;
+        } catch (Exception e) {
+            logger.error("Failed to process car ad {}: {}", carLink, e.getMessage());
+            return null;
+        }
+    }
+
+    private CarDetails getDetails(String carLink) throws IOException {
+        Document doc = Jsoup.connect(baseUrl + carLink).get();
+        CarDetails car = new CarDetails(doc, baseUrl, carLink);
+
+        if ((car.getEurPrice() == null) || (car.getEurPrice() > 20000) || (car.getMileage() == null)) {
+            return null;
+        }
+
+        return car;
+    }
+
+    List<CarDetails> fetchCarDetails(List<Future<CarDetails>> futures) throws InterruptedException {
+        List<CarDetails> carDetails = new ArrayList<>();
         for (Future<CarDetails> car : futures) {
             try {
-                CarDetails carDetails = car.get();
-                if (carDetails != null) finalProducts.add(carDetails);
+                CarDetails carDetail = car.get();
+                if (carDetail != null) {
+                    carDetails.add(carDetail);
+                }
             } catch (ExecutionException e) {
                 logger.error("Error fetching car details: {}", e.getMessage());
             }
         }
+        return carDetails;
     }
 
     List<String> fetchAdIds(String requestUrl, String paramFeature, String paramOption) throws IOException, InterruptedException {
@@ -187,6 +164,8 @@ public class Scraper {
         if (response.statusCode() != 200) {
             throw new IOException("HTTP error: " + response.statusCode() + " - " + response.body());
         }
+
+        Thread.sleep(500);
         return response;
     }
 
@@ -217,182 +196,16 @@ public class Scraper {
         }
     }
 
-    CarDetails extractDetailedCarInfo(String carLink) {
-        try {
-            Document doc = Jsoup.connect(baseUrl + carLink).get();
-
-            String title = getTitle(doc);
-            if (!title.contains(carBrand + " " + carModel)) {
-                return null;
-            }
-
-            Elements items = doc.select("div.styles_aside__0m8KW");
-
-            String updateDate = getAdInfo(items, "p.styles_date__voWnk");
-
-            String adType = getAdInfo(items, "p.styles_type___J9Dy");
-            if (adType != null) adTypeSet.add(adType);
-
-            String eurPriceText = getAdInfo(items, "span.styles_sidebar__main__DaXQC");
-            Integer eurPrice = getEurPrice(eurPriceText);
-
-            String region = getString(items, "span.styles_address__text__duvKg");
-
-            String author = getString(items, "a.styles_owner__login__VKE71");
-
-            Map<String, String> generalities = new HashMap<>();
-            extractSection(doc, "div.styles_features__left__ON_QP > div.styles_group__aota8 > ul > li", generalities);
-
-            String generation = generalities.get("Generație");
-
-            Map<String, String> particularities = new HashMap<>();
-            extractSection(doc, "div.styles_features__right__Sn6fV > div.styles_group__aota8 > ul > li", particularities);
-
-            Integer yearOfFabrication = getIntegerFromSection(particularities, "An de fabricație");
-
-            String wheelSide = particularities.get("Volan");
-            if (wheelSide != null) wheelSideSet.add(wheelSide);
-
-            String body = particularities.get("Tip caroserie");
-            if (body != null) bodySet.add(body);
-
-            String color = particularities.get("Culoare");
-            if (color != null) colorSet.add(color);
-
-            String nrOfSeats = particularities.get("Număr de locuri");
-            if (nrOfSeats != null) nrOfSeatsSet.add(nrOfSeats);
-
-            String nrOfDoors = particularities.get("Număr uși");
-            if (nrOfDoors != null) nrOfDoorsSet.add(nrOfDoors);
-
-            String engineCapacity = particularities.get("Capacitate cilindrică");
-            if (engineCapacity != null) engineCapacitySet.add(engineCapacity);
-
-            String horsepower = particularities.get("Putere");
-            if (horsepower != null) horsepowerSet.add(horsepower);
-
-            String petrolType = particularities.get("Tip combustibil");
-            if (petrolType != null) petrolTypeSet.add(petrolType);
-
-            String gearsType = particularities.get("Cutie de viteze");
-            if (gearsType != null) gearsTypeSet.add(gearsType);
-
-            String tractionType = particularities.get("Tip tracțiune");
-            if (tractionType != null) tractionTypeSet.add(tractionType);
-
-            Integer mileage = getIntegerFromSection(particularities, "Rulaj");
-
-            if ((eurPrice == null) || (eurPrice > 20000) || (mileage == null)) {
-                return null;
-            }
-
-            return new CarDetails.Builder().link(baseUrl + carLink)
-                    .name(title + " " + generation)
-                    .eurPrice(eurPrice)
-                    .mileage(mileage)
-                    .updateDate(updateDate)
-                    .adType(adType)
-                    .region(region)
-                    .author(author)
-                    .yearOfFabrication(yearOfFabrication)
-                    .wheelSide(wheelSide)
-                    .nrOfSeats(nrOfSeats)
-                    .body(body)
-                    .nrOfDoors(nrOfDoors)
-                    .engineCapacity(engineCapacity)
-                    .horsepower(horsepower)
-                    .petrolType(petrolType)
-                    .gearsType(gearsType)
-                    .tractionType(tractionType)
-                    .color(color)
-                    .build();
-        } catch (IOException e) {
-            logger.error("Error fetching car details page, skipping to the next");
-            return null;
-        } catch (NullPointerException e) {
-            return null;
-        }
-    }
-
-    Integer getIntegerFromSection(Map<String, String> map, String element) {
-        Integer result = null;
-        String text = map.get(element);
-        if (text != null) {
-            try {
-                result = Integer.parseInt(text.replaceAll("\\D", ""));
-            } catch (NumberFormatException e) {
-                throw new NumberFormatException(e.getMessage());
-            }
-        }
-        return result;
-    }
-
-    void extractSection(Document doc, String cssQuery, Map<String, String> map) {
-        Elements generalitiesItems = doc.select(cssQuery);
-        for (Element item : generalitiesItems) {
-            Element keyElement = item.selectFirst("span.styles_group__key__uRhnQ");
-            Element valueElement = item.selectFirst("span.styles_group__value__XN7OI, a.styles_group__value__XN7OI");
-            if (keyElement != null && valueElement != null) {
-                map.put(keyElement.text(), valueElement.text());
-            }
-        }
-    }
-
-    Integer getEurPrice(String eurPriceText) {
-        Integer result = null;
-        if (eurPriceText == null) {
-            throw new NullPointerException("Price empty.");
-        }
-        try {
-            if (eurPriceText.contains("€")) {
-                result = Integer.parseInt(eurPriceText.replaceAll("\\D", ""));
-            }
-        } catch (NumberFormatException e) {
-            throw new NumberFormatException(e.getMessage());
-        }
-        return result;
-    }
-
-    String getTitle(Document doc) {
-        String result = null;
-        Element titleElement = doc.selectFirst("h1");
-        if (titleElement != null) {
-            result = titleElement.text();
-        }
-        return result;
-    }
-
-    String getAdInfo(Elements items, String cssQuery) {
-        String result = null;
-        Element element = items.selectFirst(cssQuery);
-        if (element != null) {
-            String text = element.text();
-            result = text.substring(text.indexOf(":") + 1).trim();
-        }
-        return result;
-    }
-
-    String getString(Elements items, String cssQuery) {
-        String result = null;
-        Element element = items.selectFirst(cssQuery);
-        if (element != null) {
-            result = element.text();
-        }
-        return result;
-    }
-
     void printResults(List<CarDetails> finalProducts) {
         checkFinalProducts(finalProducts);
 
         CarDetails maxEntry = getMaxEntry(finalProducts);
-
         CarDetails minEntry = getMinEntry(finalProducts);
-
         double avgPrice = getAvgPrice(finalProducts, 200000, 400000);
 
         System.out.println("Max price: " + maxEntry.getEurPrice() + " (Link: " + maxEntry.getLink() + ")");
         System.out.println("Min price: " + minEntry.getEurPrice() + " (Link: " + minEntry.getLink() + ")");
-        System.out.printf(Locale.US,"Average price: %.2f%n", avgPrice);
+        System.out.printf(Locale.US, "Average price: %.2f%n", avgPrice);
     }
 
     void checkFinalProducts(List<CarDetails> finalProducts) {
@@ -429,97 +242,12 @@ public class Scraper {
             logger.info("No products found.");
             return;
         }
-
-        processLookupEntities();
-        particularitiesMapper.saveBatch(finalProducts);
+        LookupEntityRegistry lookupEntityRegistry = new LookupEntityRegistry(finalProducts, dbManager);
+        lookupEntityRegistry.processLookupEntities();
+        ParticularitiesRegistry particularitiesRegistry = new ParticularitiesRegistry(finalProducts, lookupEntityRegistry, dbManager);
+        particularitiesRegistry.processParticularities();
+        CarsMapper carsMapper = new CarsMapper(lookupEntityRegistry, particularitiesRegistry, dbManager);
         carsMapper.saveBatch(finalProducts);
         printResults(finalProducts);
-    }
-
-    public void processLookupEntities() throws SQLException {
-        adTypeMapper.batchInsert(adTypeSet);
-        adTypes = adTypeMapper.getAll();
-
-        bodyMapper.batchInsert(bodySet);
-        bodies = bodyMapper.getAll();
-
-        colorMapper.batchInsert(colorSet);
-        colors = colorMapper.getAll();
-
-        engineCapacityMapper.batchInsert(engineCapacitySet);
-        engineCapacities = engineCapacityMapper.getAll();
-
-        gearsTypeMapper.batchInsert(gearsTypeSet);
-        gearsTypes = gearsTypeMapper.getAll();
-
-        horsepowerMapper.batchInsert(horsepowerSet);
-        horsepowers = horsepowerMapper.getAll();
-
-        nrOfDoorsMapper.batchInsert(nrOfDoorsSet);
-        nrOfDoorsList = nrOfDoorsMapper.getAll();
-
-        nrOfSeatsMapper.batchInsert(nrOfSeatsSet);
-        nrOfSeatsList = nrOfSeatsMapper.getAll();
-
-        petrolTypeMapper.batchInsert(petrolTypeSet);
-        petrolTypes = petrolTypeMapper.getAll();
-
-        tractionTypeMapper.batchInsert(tractionTypeSet);
-        tractionTypes = tractionTypeMapper.getAll();
-
-        wheelSideMapper.batchInsert(wheelSideSet);
-        wheelSides = wheelSideMapper.getAll();
-    }
-
-    public void setCarBrand(String carBrand) {
-        this.carBrand = carBrand;
-    }
-
-    public void setCarModel(String carModel) {
-        this.carModel = carModel;
-    }
-
-    public List<AdType> getAdTypes() {
-        return adTypes;
-    }
-
-    public List<Color> getColors() {
-        return colors;
-    }
-
-    public List<TractionType> getTractionTypes() {
-        return tractionTypes;
-    }
-
-    public List<GearsType> getGearsTypes() {
-        return gearsTypes;
-    }
-
-    public List<PetrolType> getPetrolTypes() {
-        return petrolTypes;
-    }
-
-    public List<Horsepower> getHorsepowers() {
-        return horsepowers;
-    }
-
-    public List<EngineCapacity> getEngineCapacities() {
-        return engineCapacities;
-    }
-
-    public List<NrOfDoors> getNrOfDoorsList() {
-        return nrOfDoorsList;
-    }
-
-    public List<Body> getBodies() {
-        return bodies;
-    }
-
-    public List<NrOfSeats> getNrOfSeatsList() {
-        return nrOfSeatsList;
-    }
-
-    public List<WheelSide> getWheelSides() {
-        return wheelSides;
     }
 }

@@ -1,6 +1,6 @@
-package scraper.model;
+package scraper.model.lookupEntity;
 
-public class NrOfDoors extends LookupEntity{
+public class NrOfDoors extends LookupEntity {
     public NrOfDoors() {}
 
     public NrOfDoors(String name) {

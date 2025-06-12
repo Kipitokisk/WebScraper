@@ -1,4 +1,6 @@
-package scraper.model;
+package scraper.model.lookupEntity;
+
+import java.util.Objects;
 
 public class LookupEntity {
     private Integer id;
@@ -14,4 +16,16 @@ public class LookupEntity {
     public void setId(Integer id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        LookupEntity that = (LookupEntity) o;
+        return Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(name);
+    }
 }

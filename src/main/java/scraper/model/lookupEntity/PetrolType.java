@@ -1,6 +1,6 @@
-package scraper.model;
+package scraper.model.lookupEntity;
 
-public class PetrolType extends LookupEntity{
+public class PetrolType extends LookupEntity {
     public PetrolType() {}
 
     public PetrolType(String name) {

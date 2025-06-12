@@ -70,6 +70,7 @@ CREATE TABLE ad_type (
 CREATE TABLE particularities (
                                  id SERIAL PRIMARY KEY,
                                  author TEXT,
+                                 link TEXT UNIQUE NOT NULL,
                                  year_of_fabrication INTEGER,
                                  wheel_side_id INTEGER REFERENCES wheel_side(id),
                                  nr_of_seats_id INTEGER REFERENCES nr_of_seats(id),

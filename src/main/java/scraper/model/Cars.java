@@ -1,5 +1,7 @@
 package scraper.model;
 
+import scraper.model.lookupEntity.LookupEntity;
+
 public class Cars {
     private Integer id;
     private String link;
@@ -8,7 +10,7 @@ public class Cars {
     private Integer priceEur;
     private String updateDate;
     private LookupEntity adType;
-    private Particularities particularities;
+    private Integer particularities;
 
     public Cars() {}
 
@@ -26,7 +28,7 @@ public class Cars {
     public void setUpdateDate(String updateDate) { this.updateDate = updateDate; }
     public LookupEntity getAdType() { return adType; }
     public void setAdType(LookupEntity adType) { this.adType = adType; }
-    public Particularities getParticularities() { return particularities; }
-    public void setParticularities(Particularities particularities) { this.particularities = particularities; }
+    public Integer getParticularities() { return particularities; }
+    public void setParticularities(Integer particularities) { this.particularities = particularities; }
 }
 

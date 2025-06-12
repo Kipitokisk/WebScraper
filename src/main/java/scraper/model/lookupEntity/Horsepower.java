@@ -1,6 +1,6 @@
-package scraper.model;
+package scraper.model.lookupEntity;
 
-public class Horsepower extends LookupEntity{
+public class Horsepower extends LookupEntity {
     public Horsepower() {}
 
     public Horsepower(String name) {

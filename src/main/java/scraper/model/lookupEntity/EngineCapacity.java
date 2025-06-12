@@ -1,6 +1,6 @@
-package scraper.model;
+package scraper.model.lookupEntity;
 
-public class EngineCapacity extends LookupEntity{
+public class EngineCapacity extends LookupEntity {
     public EngineCapacity () {}
 
     public EngineCapacity(String name) {

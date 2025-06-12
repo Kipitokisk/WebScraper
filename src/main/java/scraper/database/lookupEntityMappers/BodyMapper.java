@@ -1,6 +1,7 @@
-package scraper.database;
+package scraper.database.lookupEntityMappers;
 
-import scraper.model.Body;
+import scraper.database.DatabaseManager;
+import scraper.model.lookupEntity.Body;
 
 public class BodyMapper extends LookupEntityMapper<Body> {
     public BodyMapper(DatabaseManager dbManager) {
