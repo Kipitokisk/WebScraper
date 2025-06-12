@@ -54,24 +54,25 @@ public class Scraper {
         String paramFeature = System.getenv("GRAPH_QL_PARAM_FEATURE");
         String paramOption = System.getenv("GRAPH_QL_PARAM_OPTION");
         List<String> adIds = fetchAdIds(url, paramFeature, paramOption);
-        List<Future<CarDetails>> futures = new ArrayList<>();
         ExecutorService executor = Executors.newFixedThreadPool(10);
         logger.info("Fetched {} ad IDs", adIds.size());
 
-        extractEachCarDetail(adIds, futures, executor);
+        List<Future<CarDetails>> futures = extractEachCarDetail(adIds, executor);
         List<CarDetails> carDetails = fetchCarDetails(futures);
         executor.shutdown();
         return carDetails;
     }
 
-    void extractEachCarDetail(List<String> adIds, List<Future<CarDetails>> futures, ExecutorService executor) {
+    List<Future<CarDetails>> extractEachCarDetail(List<String> adIds, ExecutorService executor) {
+        List<Future<CarDetails>> futures = new ArrayList<>();
         for (String adId : adIds) {
             String carLink = "/ro/" + adId;
             futures.add(executor.submit(() -> getCarDetails(carLink)));
         }
+        return futures;
     }
 
-    private CarDetails getCarDetails(String carLink) throws InterruptedException {
+    CarDetails getCarDetails(String carLink) throws InterruptedException {
         try {
             long delay = 500 + new Random().nextLong(500);
             Thread.sleep(delay);
@@ -85,7 +86,7 @@ public class Scraper {
         }
     }
 
-    private CarDetails getDetails(String carLink) throws IOException {
+    CarDetails getDetails(String carLink) throws IOException {
         Document doc = Jsoup.connect(baseUrl + carLink).get();
         CarDetails car = new CarDetails(doc, baseUrl, carLink);
 
