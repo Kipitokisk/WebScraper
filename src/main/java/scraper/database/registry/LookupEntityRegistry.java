@@ -121,4 +121,7 @@ public class LookupEntityRegistry {
                 .findFirst()
                 .orElse(null);
     }
+
+    public Set<WheelSide> getWheelSideSet() { return wheelSideSet;}
+    public Set<AdType> getAdTypeSet() { return adTypeSet;}
 }
