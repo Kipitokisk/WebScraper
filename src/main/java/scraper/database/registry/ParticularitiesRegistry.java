@@ -10,14 +10,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ParticularitiesRegistry {
-    private final ParticularitiesMapper particularitiesMapper;
-    private final List<CarDetails> carDetails;
+    final ParticularitiesMapper particularitiesMapper;
+    final List<CarDetails> carDetails;
 
-    private List<Particularities> particularitiesList = new ArrayList<>();
+    List<Particularities> particularitiesList = new ArrayList<>();
 
-    public ParticularitiesRegistry(List<CarDetails> carDetails, LookupEntityRegistry lookupEntityRegistry, DatabaseManager dbManager) {
+    public ParticularitiesRegistry(List<CarDetails> carDetails, ParticularitiesMapper particularitiesMapper) {
         this.carDetails = carDetails;
-        this.particularitiesMapper = new ParticularitiesMapper(dbManager, lookupEntityRegistry);
+        this.particularitiesMapper = particularitiesMapper;
     }
 
     public void processParticularities() throws SQLException {

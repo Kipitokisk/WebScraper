@@ -245,7 +245,8 @@ public class Scraper {
         }
         LookupEntityRegistry lookupEntityRegistry = new LookupEntityRegistry(finalProducts, dbManager);
         lookupEntityRegistry.processLookupEntities();
-        ParticularitiesRegistry particularitiesRegistry = new ParticularitiesRegistry(finalProducts, lookupEntityRegistry, dbManager);
+        ParticularitiesMapper particularitiesMapper = new ParticularitiesMapper(dbManager, lookupEntityRegistry);
+        ParticularitiesRegistry particularitiesRegistry = new ParticularitiesRegistry(finalProducts, particularitiesMapper);
         particularitiesRegistry.processParticularities();
         CarsMapper carsMapper = new CarsMapper(lookupEntityRegistry, particularitiesRegistry, dbManager);
         carsMapper.saveBatch(finalProducts);
