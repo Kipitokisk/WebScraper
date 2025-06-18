@@ -79,11 +79,9 @@ public class Scraper {
     int getNrOfThreads() {
         int threadCount = Integer.parseInt(dotenv.get("THREAD_COUNT"));
         if (threadCount != 0) {
-            return threadCount;
+            return Math.min(threadCount, MAX_THREADS);
         }
-        int cores = Runtime.getRuntime().availableProcessors();
-        int calculatedThreads = cores * 4;
-        return Math.min(calculatedThreads, MAX_THREADS);
+        return MAX_THREADS;
     }
 
     List<Future<CarDetails>> extractEachCarDetail(List<String> adIds, ExecutorService executor) {

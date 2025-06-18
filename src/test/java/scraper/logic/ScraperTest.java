@@ -78,7 +78,7 @@ class ScraperTest {
 
     @Test
     void testFetchAdIds_MissingParams() throws IOException {
-        String requestUrl = "https://api.example.com/graphql";
+        String requestUrl = "https://999.md/graphql";
         String paramFeature = "feature";
         String paramOption = "option";
 

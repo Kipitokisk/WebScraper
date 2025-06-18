@@ -65,18 +65,18 @@ public class CarDetails {
     }
 
 
-    private String extractTitle(Document doc) {
+    String extractTitle(Document doc) {
         Element titleElement = doc.selectFirst("h1");
         return (titleElement != null) ? titleElement.text() : null;
     }
 
-    private void validateTitle(String title, String brand, String model) {
+    void validateTitle(String title, String brand, String model) {
         if (title == null || !title.contains(brand + " " + model)) {
             throw new IllegalArgumentException("Invalid title for car: " + title);
         }
     }
 
-    private String extractLabeledValue(Elements container, String cssQuery) {
+    String extractLabeledValue(Elements container, String cssQuery) {
         Element element = container.selectFirst(cssQuery);
         if (element != null) {
             String text = element.text();
@@ -86,12 +86,12 @@ public class CarDetails {
         return null;
     }
 
-    private String extractText(Elements container, String cssQuery) {
+    String extractText(Elements container, String cssQuery) {
         Element element = container.selectFirst(cssQuery);
         return element != null ? element.text() : null;
     }
 
-    private Map<String, String> extractFeatureMap(Document doc, String cssQuery) {
+    Map<String, String> extractFeatureMap(Document doc, String cssQuery) {
         Map<String, String> map = new HashMap<>();
         Elements items = doc.select(cssQuery);
         for (Element item : items) {
@@ -104,7 +104,7 @@ public class CarDetails {
         return map;
     }
 
-    private Integer parseInteger(String text) {
+    Integer parseInteger(String text) {
         if (text == null) return null;
         try {
             return Integer.parseInt(text.replaceAll("\\D", ""));
