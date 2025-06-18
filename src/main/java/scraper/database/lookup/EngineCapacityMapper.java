@@ -1,7 +1,7 @@
-package scraper.database.lookupEntityMappers;
+package scraper.database.lookup;
 
 import scraper.database.DatabaseManager;
-import scraper.model.lookupEntity.EngineCapacity;
+import scraper.model.lookup.EngineCapacity;
 
 public class EngineCapacityMapper extends LookupEntityMapper<EngineCapacity> {
     public EngineCapacityMapper(DatabaseManager dbManager) {

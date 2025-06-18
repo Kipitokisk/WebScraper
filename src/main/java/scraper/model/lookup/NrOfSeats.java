@@ -1,4 +1,4 @@
-package scraper.model.lookupEntity;
+package scraper.model.lookup;
 
 public class NrOfSeats extends LookupEntity {
     public NrOfSeats() {}

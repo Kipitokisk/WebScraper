@@ -3,6 +3,7 @@ package scraper.logic;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
@@ -30,11 +31,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Scraper {
+    private final Dotenv dotenv = Dotenv.load();
     private final Logger logger;
     private final String baseUrl;
     private final String searchUrl;
     private final HttpClient client;
     private final DatabaseManager dbManager;
+    private static final int MIN_MILEAGE = 200000;
+    private static final int MAX_MILEAGE = 400000;
+    private static final int MAX_EUR_PRICE = 20000;
+    private static final long DELAY = 1000L;
+    private static final int MAX_THREADS = 25;
 
     public Scraper(String baseUrl, String searchUrl, DatabaseManager dbManager, Logger logger, HttpClient client) {
         this.baseUrl = baseUrl;
@@ -50,17 +57,33 @@ public class Scraper {
     }
 
     List<CarDetails> processCars() throws IOException, InterruptedException {
-        String url = System.getenv("GRAPH_QL_URL");
-        String paramFeature = System.getenv("GRAPH_QL_PARAM_FEATURE");
-        String paramOption = System.getenv("GRAPH_QL_PARAM_OPTION");
+        String url = dotenv.get("GRAPH_QL_URL");
+        String paramFeature = dotenv.get("GRAPH_QL_PARAM_FEATURE");
+        String paramOption = dotenv.get("GRAPH_QL_PARAM_OPTION");
+
         List<String> adIds = fetchAdIds(url, paramFeature, paramOption);
-        ExecutorService executor = Executors.newFixedThreadPool(10);
+
+        int threads = getNrOfThreads();
+
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
         logger.info("Fetched {} ad IDs", adIds.size());
 
         List<Future<CarDetails>> futures = extractEachCarDetail(adIds, executor);
         List<CarDetails> carDetails = fetchCarDetails(futures);
+
         executor.shutdown();
+
         return carDetails;
+    }
+
+    int getNrOfThreads() {
+        int threadCount = Integer.parseInt(dotenv.get("THREAD_COUNT"));
+        if (threadCount != 0) {
+            return threadCount;
+        }
+        int cores = Runtime.getRuntime().availableProcessors();
+        int calculatedThreads = cores * 4;
+        return Math.min(calculatedThreads, MAX_THREADS);
     }
 
     List<Future<CarDetails>> extractEachCarDetail(List<String> adIds, ExecutorService executor) {
@@ -74,8 +97,7 @@ public class Scraper {
 
     CarDetails getCarDetails(String carLink) throws InterruptedException {
         try {
-            long delay = 500 + new Random().nextLong(500);
-            Thread.sleep(delay);
+            Thread.sleep(DELAY);
             return getDetails(carLink);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -88,9 +110,15 @@ public class Scraper {
 
     CarDetails getDetails(String carLink) throws IOException {
         Document doc = Jsoup.connect(baseUrl + carLink).get();
-        CarDetails car = new CarDetails(doc, baseUrl, carLink);
+        String carBrand = dotenv.get("CAR_BRAND");
+        String carModel = dotenv.get("CAR_MODEL");
+        CarDetails car = new CarDetails(doc, baseUrl, carLink, carBrand, carModel);
 
-        if ((car.getEurPrice() == null) || (car.getEurPrice() > 20000) || (car.getMileage() == null)) {
+        return validateCarDetails(car);
+    }
+
+    CarDetails validateCarDetails(CarDetails car) {
+        if ((car.getEurPrice() == null) || (car.getEurPrice() > MAX_EUR_PRICE) || (car.getMileage() == null)) {
             return null;
         }
 
@@ -100,23 +128,32 @@ public class Scraper {
     List<CarDetails> fetchCarDetails(List<Future<CarDetails>> futures) throws InterruptedException {
         List<CarDetails> carDetails = new ArrayList<>();
         for (Future<CarDetails> car : futures) {
-            try {
-                CarDetails carDetail = car.get();
-                if (carDetail != null) {
-                    carDetails.add(carDetail);
-                }
-            } catch (ExecutionException e) {
-                logger.error("Error fetching car details: {}", e.getMessage());
-            }
+            getCar(car, carDetails);
         }
         return carDetails;
     }
 
-    List<String> fetchAdIds(String requestUrl, String paramFeature, String paramOption) throws IOException, InterruptedException {
-        Map<String, String> filterParams = extractFilterParams(searchUrl, paramFeature, paramOption);
-        if (!filterParams.containsKey(paramFeature) || !filterParams.containsKey(paramOption)) {
-            throw new IOException("Could not extract featureId or optionId from URL");
+    void getCar(Future<CarDetails> car, List<CarDetails> carDetails) throws InterruptedException {
+        try {
+            CarDetails carDetail = car.get();
+            addCarDetailToList(carDetails, carDetail);
+        } catch (ExecutionException e) {
+            logger.error("Error fetching car details: {}", e.getMessage());
         }
+    }
+
+    void addCarDetailToList(List<CarDetails> carDetails, CarDetails carDetail) {
+        if (carDetail != null) {
+            carDetails.add(carDetail);
+        }
+    }
+
+    List<String> fetchAdIds(String requestUrl, String paramFeature, String paramOption)
+            throws IOException, InterruptedException {
+        Map<String, String> filterParams = extractFilterParams(searchUrl, paramFeature, paramOption);
+
+        validateFilterParams(paramFeature, paramOption, filterParams);
+
         String featureId = filterParams.get(paramFeature);
         String optionId = filterParams.get(paramOption);
 
@@ -128,21 +165,35 @@ public class Scraper {
 
         HttpResponse<String> response = getStringHttpResponse(requestUrl, graphQlPayload);
 
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode rootNode;
-        try {
-            rootNode = mapper.readTree(response.body());
-        } catch (JsonProcessingException e) {
-            throw new IOException("Failed to parse JSON", e);
-        }
-        JsonNode adsNode = rootNode.path("data").path("searchAds").path("ads");
+        JsonNode adsNode = extractAdsNode(response);
 
+        return getAdIds(adsNode);
+    }
+
+    List<String> getAdIds(JsonNode adsNode) {
         List<String> adIds = new ArrayList<>();
         for (JsonNode ad : adsNode) {
             String adId = ad.path("id").asText();
             adIds.add(adId);
         }
         return adIds;
+    }
+
+    JsonNode extractAdsNode(HttpResponse<String> response) throws IOException {
+        JsonNode rootNode;
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            rootNode = mapper.readTree(response.body());
+        } catch (JsonProcessingException e) {
+            throw new IOException("Failed to parse JSON", e);
+        }
+        return rootNode.path("data").path("searchAds").path("ads");
+    }
+
+    void validateFilterParams(String paramFeature, String paramOption, Map<String, String> filterParams) throws IOException {
+        if (!filterParams.containsKey(paramFeature) || !filterParams.containsKey(paramOption)) {
+            throw new IOException("Could not extract featureId or optionId from URL");
+        }
     }
 
     String getGraphQlPayloadTemplate() throws IOException {
@@ -154,36 +205,47 @@ public class Scraper {
         }
     }
 
-    HttpResponse<String> getStringHttpResponse(String url, String graphqlPayload) throws IOException, InterruptedException {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(graphqlPayload))
-                .build();
+    HttpResponse<String> getStringHttpResponse(String url, String graphqlPayload)
+            throws IOException, InterruptedException {
+        HttpRequest request = createRequest(url, graphqlPayload);
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
             throw new IOException("HTTP error: " + response.statusCode() + " - " + response.body());
         }
 
-        Thread.sleep(500);
         return response;
     }
 
-    Map<String, String> extractFilterParams(String searchUrl, String paramFeature, String paramOption) throws IOException {
-        Map<String, String> params = new HashMap<>();
+    HttpRequest createRequest(String url, String graphqlPayload) {
+        return HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(graphqlPayload))
+                .build();
+    }
+
+    Map<String, String> extractFilterParams(String searchUrl, String paramFeature, String paramOption)
+            throws IOException {
+        Map<String, String> params;
         try {
-            parseUrlElements(searchUrl, params, paramFeature, paramOption);
+            params = parseUrlElements(searchUrl, paramFeature, paramOption);
         } catch (MalformedURLException e) {
             throw new IOException("Invalid URL format", e);
         }
         return params;
     }
 
-    void parseUrlElements(String searchUrl, Map<String, String> params, String paramFeature, String paramOption) throws MalformedURLException {
-        URL url = new URL(searchUrl);
-        String query = url.getQuery();
+    Map<String, String> parseUrlElements(String searchUrl, String paramFeature, String paramOption)
+            throws MalformedURLException {
+        URL completeUrl = new URL(searchUrl);
+        String query = completeUrl.getQuery();
+        return extractParamsFromQuery(paramFeature, paramOption, query);
+    }
+
+    Map<String, String> extractParamsFromQuery(String paramFeature, String paramOption, String query) {
         if (query != null) {
+            Map<String, String> params = new HashMap<>();
             String[] pairs = query.split("&");
             Pattern pattern = Pattern.compile("o_\\d+_(\\d+)_\\d+_\\d+=(\\d+)");
             for (String pair : pairs) {
@@ -191,10 +253,11 @@ public class Scraper {
                 if (matcher.matches()) {
                     params.put(paramFeature, matcher.group(1));
                     params.put(paramOption, matcher.group(2));
-                    break;
+                    return params;
                 }
             }
         }
+        throw new IllegalArgumentException("Query doesn't contain params");
     }
 
     void printResults(List<CarDetails> finalProducts) {
@@ -202,7 +265,7 @@ public class Scraper {
 
         CarDetails maxEntry = getMaxEntry(finalProducts);
         CarDetails minEntry = getMinEntry(finalProducts);
-        double avgPrice = getAvgPrice(finalProducts, 200000, 400000);
+        double avgPrice = getAvgPrice(finalProducts);
 
         System.out.println("Max price: " + maxEntry.getEurPrice() + " (Link: " + maxEntry.getLink() + ")");
         System.out.println("Min price: " + minEntry.getEurPrice() + " (Link: " + minEntry.getLink() + ")");
@@ -215,10 +278,10 @@ public class Scraper {
         }
     }
 
-    double getAvgPrice(List<CarDetails> finalProducts, int minMileage, int maxMileage) {
+    double getAvgPrice(List<CarDetails> finalProducts) {
         return finalProducts.stream()
-                .filter(c -> c.getMileage() != null && c.getEurPrice() != null && c.getMileage() > minMileage &&
-                        c.getMileage() < maxMileage && c.getAdType().equals("Vând"))
+                .filter(c -> c.getMileage() != null && c.getEurPrice() != null && c.getMileage() > MIN_MILEAGE
+                        && c.getMileage() < MAX_MILEAGE && c.getAdType().equals("Vând"))
                 .mapToInt(CarDetails::getEurPrice)
                 .average()
                 .orElseThrow(() -> new RuntimeException("Cannot compute average - list is empty"));
@@ -243,13 +306,28 @@ public class Scraper {
             logger.info("No products found.");
             return;
         }
-        LookupEntityRegistry lookupEntityRegistry = new LookupEntityRegistry(finalProducts, dbManager);
-        lookupEntityRegistry.processLookupEntities();
-        ParticularitiesMapper particularitiesMapper = new ParticularitiesMapper(dbManager, lookupEntityRegistry);
-        ParticularitiesRegistry particularitiesRegistry = new ParticularitiesRegistry(finalProducts, particularitiesMapper);
-        particularitiesRegistry.processParticularities();
+        LookupEntityRegistry lookupEntityRegistry = saveLookupEntities(finalProducts);
+        ParticularitiesRegistry particularitiesRegistry = saveParticularities(finalProducts, lookupEntityRegistry);
+        saveCars(finalProducts, lookupEntityRegistry, particularitiesRegistry);
+        printResults(finalProducts);
+    }
+
+    void saveCars(List<CarDetails> finalProducts, LookupEntityRegistry lookupEntityRegistry, ParticularitiesRegistry particularitiesRegistry) throws SQLException {
         CarsMapper carsMapper = new CarsMapper(lookupEntityRegistry, particularitiesRegistry, dbManager);
         carsMapper.saveBatch(finalProducts);
-        printResults(finalProducts);
+    }
+
+    ParticularitiesRegistry saveParticularities(List<CarDetails> finalProducts, LookupEntityRegistry lookupEntityRegistry) throws SQLException {
+        ParticularitiesMapper particularitiesMapper = new ParticularitiesMapper(dbManager, lookupEntityRegistry);
+        ParticularitiesRegistry particularitiesRegistry =
+                new ParticularitiesRegistry(finalProducts, particularitiesMapper);
+        particularitiesRegistry.processParticularities();
+        return particularitiesRegistry;
+    }
+
+    LookupEntityRegistry saveLookupEntities(List<CarDetails> finalProducts) throws SQLException {
+        LookupEntityRegistry lookupEntityRegistry = new LookupEntityRegistry(finalProducts, dbManager);
+        lookupEntityRegistry.processLookupEntities();
+        return lookupEntityRegistry;
     }
 }

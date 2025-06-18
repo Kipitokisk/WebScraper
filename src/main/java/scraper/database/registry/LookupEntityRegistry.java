@@ -1,9 +1,9 @@
 package scraper.database.registry;
 
 import scraper.database.*;
-import scraper.database.lookupEntityMappers.*;
+import scraper.database.lookup.*;
 import scraper.model.CarDetails;
-import scraper.model.lookupEntity.*;
+import scraper.model.lookup.*;
 
 import java.sql.SQLException;
 import java.util.*;

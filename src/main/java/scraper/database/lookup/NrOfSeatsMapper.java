@@ -1,7 +1,7 @@
-package scraper.database.lookupEntityMappers;
+package scraper.database.lookup;
 
 import scraper.database.DatabaseManager;
-import scraper.model.lookupEntity.NrOfSeats;
+import scraper.model.lookup.NrOfSeats;
 
 public class NrOfSeatsMapper extends LookupEntityMapper<NrOfSeats> {
     public NrOfSeatsMapper(DatabaseManager dbManager) {

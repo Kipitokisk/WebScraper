@@ -1,7 +1,7 @@
-package scraper.database.lookupEntityMappers;
+package scraper.database.lookup;
 
 import scraper.database.DatabaseManager;
-import scraper.model.lookupEntity.Horsepower;
+import scraper.model.lookup.Horsepower;
 
 public class HorsepowerMapper extends LookupEntityMapper<Horsepower> {
     public HorsepowerMapper(DatabaseManager dbManager) {

@@ -1,322 +1,331 @@
-//package scraper.logic;
-//
-//import com.fasterxml.jackson.databind.JsonNode;
-//import com.fasterxml.jackson.databind.ObjectMapper;
-//import org.jsoup.Jsoup;
-//import org.jsoup.nodes.Document;
-//import org.junit.jupiter.api.BeforeEach;
-//import org.junit.jupiter.api.Test;
-//import org.slf4j.Logger;
-//import scraper.database.DatabaseManager;
-//import scraper.model.CarDetails;
-//
-//import java.io.ByteArrayInputStream;
-//import java.io.IOException;
-//import java.net.http.HttpClient;
-//import java.net.http.HttpRequest;
-//import java.net.http.HttpResponse;
-//import java.nio.charset.StandardCharsets;
-//import java.sql.SQLException;
-//import java.util.*;
-//import java.util.concurrent.*;
-//
-//import static org.junit.jupiter.api.Assertions.*;
-//import static org.mockito.Mockito.*;
-//
-//class ScraperTest {
-//
-//    private Logger logger;
-//    private HttpClient client;
-//    private DatabaseManager dbManager;
-//    private Document document;
-//    private HttpResponse<String> httpResponse;
-//    private JsonNode jsonNode;
-//    private ObjectMapper objectMapper;
-//
-//    private Scraper scraper;
-//
-//    private final String baseUrl = "http://example.com";
-//    private final String searchUrl = "http://example.com/search?o_123_456_789=101";
-//    private final String graphQlUrl = "http://graphql.example.com";
-//
-//    @BeforeEach
-//    void setUp() {
-//        logger = mock(Logger.class);
-//        client = mock(HttpClient.class);
-//        dbManager = mock(DatabaseManager.class);
-//        document = mock(Document.class);
-//        httpResponse = mock(HttpResponse.class);
-//        jsonNode = mock(JsonNode.class);
-//        objectMapper = mock(ObjectMapper.class);
-//
-//        scraper = new Scraper(baseUrl, searchUrl, dbManager, logger, client);
-//
-//        // Mock system environment variables
-//        System.setProperty("GRAPH_QL_URL", graphQlUrl);
-//        System.setProperty("GRAPH_QL_PARAM_FEATURE", "featureId");
-//        System.setProperty("GRAPH_QL_PARAM_OPTION", "optionId");
-//    }
-//
-//    @Test
-//    void testScrape_SuccessfulExecution() throws IOException, InterruptedException, SQLException {
-//        // Arrange
-//        List<String> adIds = List.of("1", "2");
-//        CarDetails car1 = mock(CarDetails.class);
-//        CarDetails car2 = mock(CarDetails.class);
-//        when(car1.getEurPrice()).thenReturn(15000);
-//        when(car1.getMileage()).thenReturn(100000);
-//        when(car1.getAdType()).thenReturn("Vând");
-//        when(car1.getLink()).thenReturn(baseUrl + "/ro/1");
-//        when(car2.getEurPrice()).thenReturn(18000);
-//        when(car2.getMileage()).thenReturn(120000);
-//        when(car2.getAdType()).thenReturn("Vând");
-//        when(car2.getLink()).thenReturn(baseUrl + "/ro/2");
-//
-//        // Mock fetchAdIds
-//        when(httpResponse.statusCode()).thenReturn(200);
-//        when(httpResponse.body()).thenReturn("{\"data\":{\"searchAds\":{\"ads\":[{\"id\":\"1\"},{\"id\":\"2\"}]}}");
-//        when(client.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
-//        when(objectMapper.readTree(anyString())).thenReturn(jsonNode);
-//        JsonNode dataNode = mock(JsonNode.class);
-//        JsonNode searchAdsNode = mock(JsonNode.class);
-//        JsonNode adsNode = mock(JsonNode.class);
-//        when(jsonNode.path("data")).thenReturn(dataNode);
-//        when(dataNode.path("searchAds")).thenReturn(searchAdsNode);
-//        when(searchAdsNode.path("ads")).thenReturn(adsNode);
-//        when(adsNode.iterator()).thenReturn(List.of(mock(JsonNode.class), mock(JsonNode.class)).iterator());
-//        when(adsNode.iterator().next().path("id").asText()).thenReturn("1").thenReturn("2");
-//
-//        // Mock Jsoup connection
-//        when(Jsoup.connect(anyString())).thenReturn(mock(org.jsoup.Connection.class));
-//        when(Jsoup.connect(anyString()).get()).thenReturn(document);
-//
-//        // Act
-//        scraper.scrape();
-//
-//        // Assert
-//        verify(client, times(1)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
-//        verify(logger, atLeastOnce()).info(contains("Fetched 2 ad IDs"));
-//        verify(dbManager, atLeastOnce()).getConnection(); // Assuming used in saveResults
-//    }
-//
-//    @Test
-//    void testFetchAdIds_Success() throws IOException, InterruptedException {
-//        // Arrange
-//        String payloadTemplate = "{\"query\":\"query($featureId: String, $optionId: String) { searchAds(featureId: $featureId, optionId: $optionId) { ads { id } }}\"}";
-//        try (var is = new ByteArrayInputStream(payloadTemplate.getBytes(StandardCharsets.UTF_8))) {
-//            when(Scraper.class.getClassLoader().getResourceAsStream("graphQlPayload.json")).thenReturn(is);
-//        }
-//        when(httpResponse.statusCode()).thenReturn(200);
-//        when(httpResponse.body()).thenReturn("{\"data\":{\"searchAds\":{\"ads\":[{\"id\":\"1\"},{\"id\":\"2\"}]}}");
-//        when(client.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
-//        when(objectMapper.readTree(anyString())).thenReturn(jsonNode);
-//        JsonNode dataNode = mock(JsonNode.class);
-//        JsonNode searchAdsNode = mock(JsonNode.class);
-//        JsonNode adsNode = mock(JsonNode.class);
-//        when(jsonNode.path("data")).thenReturn(dataNode);
-//        when(dataNode.path("searchAds")).thenReturn(searchAdsNode);
-//        when(searchAdsNode.path("ads")).thenReturn(adsNode);
-//        when(adsNode.iterator()).thenReturn(List.of(mock(JsonNode.class), mock(JsonNode.class)).iterator());
-//        when(adsNode.iterator().next().path("id").asText()).thenReturn("1").thenReturn("2");
-//
-//        // Act
-//        List<String> adIds = scraper.fetchAdIds(graphQlUrl, "featureId", "optionId");
-//
-//        // Assert
-//        assertEquals(List.of("1", "2"), adIds);
-//        verify(client, times(1)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
-//        verify(logger, never()).error(anyString(), any());
-//    }
-//
-//    @Test
-//    void testFetchAdIds_HttpError_ThrowsIOException() throws IOException, InterruptedException {
-//        // Arrange
-//        String payloadTemplate = "{\"query\":\"query($featureId: String, $optionId: String) { searchAds(featureId: $featureId, optionId: $optionId) { ads { id } }}\"}";
-//        try (var is = new ByteArrayInputStream(payloadTemplate.getBytes(StandardCharsets.UTF_8))) {
-//            when(Scraper.class.getClassLoader().getResourceAsStream("graphQlPayload.json")).thenReturn(is);
-//        }
-//        when(httpResponse.statusCode()).thenReturn(500);
-//        when(httpResponse.body()).thenReturn("Server error");
-//        when(client.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
-//
-//        // Act & Assert
-//        IOException exception = assertThrows(IOException.class, () -> scraper.fetchAdIds(graphQlUrl, "featureId", "optionId"));
-//        assertTrue(exception.getMessage().contains("HTTP error: 500"));
-//        verify(logger, atLeastOnce()).error(anyString(), any());
-//    }
-//
-//    @Test
-//    void testFetchAdIds_InvalidJson_ThrowsIOException() throws IOException, InterruptedException {
-//        // Arrange
-//        String payloadTemplate = "{\"query\":\"query($featureId: String, $optionId: String) { searchAds(featureId: $featureId, optionId: $optionId) { ads { id } }}\"}";
-//        try (var is = new ByteArrayInputStream(payloadTemplate.getBytes(StandardCharsets.UTF_8))) {
-//            when(Scraper.class.getClassLoader().getResourceAsStream("graphQlPayload.json")).thenReturn(is);
-//        }
-//        when(httpResponse.statusCode()).thenReturn(200);
-//        when(httpResponse.body()).thenReturn("invalid json");
-//        when(client.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
-//        when(objectMapper.readTree("invalid json")).thenThrow(new IOException("Invalid JSON"));
-//
-//        // Act & Assert
-//        assertThrows(IOException.class, () -> scraper.fetchAdIds(graphQlUrl, "featureId", "optionId"));
-//        verify(logger, atLeastOnce()).error(anyString(), any());
-//    }
-//
-//    @Test
-//    void testGetCarDetails_Success() throws InterruptedException, IOException {
-//        // Arrange
-//        String carLink = "/ro/1";
-//        when(Jsoup.connect(baseUrl + carLink)).thenReturn(mock(org.jsoup.Connection.class));
-//        when(Jsoup.connect(baseUrl + carLink).get()).thenReturn(document);
-//        CarDetails carDetails = mock(CarDetails.class);
-//        when(carDetails.getEurPrice()).thenReturn(15000);
-//        when(carDetails.getMileage()).thenReturn(100000);
-//
-//        // Act
-//        CarDetails result = scraper.getCarDetails(carLink);
-//
-//        // Assert
-//        assertNotNull(result);
-//        verify(logger, never()).error(anyString(), any());
-//    }
-//
-//    @Test
-//    void testGetCarDetails_HighPrice_ReturnsNull() throws InterruptedException, IOException {
-//        // Arrange
-//        String carLink = "/ro/1";
-//        when(Jsoup.connect(baseUrl + carLink)).thenReturn(mock(org.jsoup.Connection.class));
-//        when(Jsoup.connect(baseUrl + carLink).get()).thenReturn(document);
-//        CarDetails carDetails = mock(CarDetails.class);
-//        when(carDetails.getEurPrice()).thenReturn(25000); // Above threshold
-//        when(carDetails.getMileage()).thenReturn(100000);
-//
-//        // Act
-//        CarDetails result = scraper.getCarDetails(carLink);
-//
-//        // Assert
-//        assertNull(result);
-//        verify(logger, atLeastOnce()).error(anyString(), any());
-//    }
-//
-//    @Test
-//    void testExtractEachCarDetail_SubmitsTasks() {
-//        // Arrange
-//        List<String> adIds = List.of("1", "2");
-//        ExecutorService executor = mock(ExecutorService.class);
-//        when(executor.submit(any(Callable.class))).thenReturn(mock(Future.class));
-//
-//        // Act
-//        List<Future<CarDetails>> futures = scraper.extractEachCarDetail(adIds, executor);
-//
-//        // Assert
-//        assertEquals(2, futures.size());
-//        verify(executor, times(2)).submit(any(Callable.class));
-//    }
-//
-//    @Test
-//    void testFetchCarDetails_ProcessesFutures() throws InterruptedException, ExecutionException {
-//        // Arrange
-//        Future<CarDetails> future1 = mock(Future.class);
-//        Future<CarDetails> future2 = mock(Future.class);
-//        CarDetails car1 = mock(CarDetails.class);
-//        when(future1.get()).thenReturn(car1);
-//        when(future2.get()).thenReturn(null); // Simulating a failed fetch
-//        List<Future<CarDetails>> futures = List.of(future1, future2);
-//
-//        // Act
-//        List<CarDetails> result = scraper.fetchCarDetails(futures);
-//
-//        // Assert
-//        assertEquals(1, result.size());
-//        assertEquals(car1, result.get(0));
-//        verify(logger, never()).error(anyString(), any());
-//    }
-//
-//    @Test
-//    void testExtractFilterParams_Success() throws IOException {
-//        // Act
-//        Map<String, String> params = scraper.extractFilterParams(searchUrl, "featureId", "optionId");
-//
-//        // Assert
-//        assertEquals("456", params.get("featureId"));
-//        assertEquals("101", params.get("optionId"));
-//    }
-//
-//    @Test
-//    void testExtractFilterParams_InvalidUrl_ThrowsIOException() {
-//        // Arrange
-//        String invalidUrl = "http://example.com/invalid";
-//
-//        // Act & Assert
-//        assertThrows(IOException.class, () -> scraper.extractFilterParams(invalidUrl, "featureId", "optionId"));
-//    }
-//
-//    @Test
-//    void testGetAvgPrice_ValidData() {
-//        // Arrange
-//        CarDetails car1 = mock(CarDetails.class);
-//        CarDetails car2 = mock(CarDetails.class);
-//        when(car1.getEurPrice()).thenReturn(15000);
-//        when(car1.getMileage()).thenReturn(250000);
-//        when(car1.getAdType()).thenReturn("Vând");
-//        when(car2.getEurPrice()).thenReturn(18000);
-//        when(car2.getMileage()).thenReturn(300000);
-//        when(car2.getAdType()).thenReturn("Vând");
-//        List<CarDetails> cars = List.of(car1, car2);
-//
-//        // Act
-//        double avgPrice = scraper.getAvgPrice(cars, 200000, 400000);
-//
-//        // Assert
-//        assertEquals(16500.0, avgPrice, 0.01);
-//    }
-//
-//    @Test
-//    void testGetAvgPrice_EmptyFilteredList_ThrowsRuntimeException() {
-//        // Arrange
-//        CarDetails car = mock(CarDetails.class);
-//        when(car.getEurPrice()).thenReturn(15000);
-//        when(car.getMileage()).thenReturn(100000); // Outside range
-//        when(car.getAdType()).thenReturn("Vând");
-//        List<CarDetails> cars = List.of(car);
-//
-//        // Act & Assert
-//        assertThrows(RuntimeException.class, () -> scraper.getAvgPrice(cars, 200000, 400000));
-//    }
-//
-//    @Test
-//    void testGetMinEntry_Success() {
-//        // Arrange
-//        CarDetails car1 = mock(CarDetails.class);
-//        CarDetails car2 = mock(CarDetails.class);
-//        when(car1.getEurPrice()).thenReturn(15000);
-//        when(car1.getAdType()).thenReturn("Vând");
-//        when(car2.getEurPrice()).thenReturn(18000);
-//        when(car2.getAdType()).thenReturn("Vând");
-//        List<CarDetails> cars = List.of(car1, car2);
-//
-//        // Act
-//        CarDetails minEntry = scraper.getMinEntry(cars);
-//
-//        // Assert
-//        assertEquals(car1, minEntry);
-//    }
-//
-//    @Test
-//    void testGetMinEntry_NoValidCars_ThrowsRuntimeException() {
-//        // Arrange
-//        CarDetails car = mock(CarDetails.class);
-//        when(car.getEurPrice()).thenReturn(null);
-//        when(car.getAdType()).thenReturn("Vând");
-//        List<CarDetails> cars = List.of(car);
-//
-//        // Act & Assert
-//        assertThrows(RuntimeException.class, () -> scraper.getMinEntry(cars));
-//    }
-//
-//    @Test
-//    void testCheckFinalProducts_EmptyList_ThrowsIllegalArgumentException() {
-//        // Act & Assert
-//        assertThrows(IllegalArgumentException.class, () -> scraper.checkFinalProducts(Collections.emptyList()));
-//    }
-//}
+package scraper.logic;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import scraper.database.DatabaseManager;
+import scraper.model.CarDetails;
+
+import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+class ScraperTest {
+
+    private Scraper scraper;
+    private Logger mockLogger;
+    private HttpClient mockHttpClient;
+    private DatabaseManager mockDbManager;
+    private String searchUrl = "https://999.md/search?o_123_456_789_101=654";
+
+    @BeforeEach
+    void setUp() {
+        mockLogger = mock(Logger.class);
+        mockHttpClient = mock(HttpClient.class);
+        mockDbManager = mock(DatabaseManager.class);
+        scraper = spy(new Scraper("https://999.md", searchUrl, mockDbManager, mockLogger, mockHttpClient));
+    }
+
+    @Test
+    void testScrape() throws IOException, InterruptedException, SQLException {
+        List<CarDetails> mockCarDetails = Arrays.asList(
+                createMockCarDetails(1000, 150000),
+                createMockCarDetails(2000, 200000)
+        );
+
+        doReturn(mockCarDetails).when(scraper).processCars();
+        doNothing().when(scraper).saveResults(any());
+
+        scraper.scrape();
+
+        verify(scraper).processCars();
+        verify(scraper).saveResults(mockCarDetails);
+    }
+
+    @Test
+    void testFetchAdIds() throws IOException, InterruptedException {
+        String requestUrl = "https://api.example.com/graphql";
+        String paramFeature = "feature";
+        String paramOption = "option";
+
+        Map<String, String> mockFilterParams = new HashMap<>();
+        mockFilterParams.put("feature", "123");
+        mockFilterParams.put("option", "456");
+
+        String mockPayload = "{\"query\": \"test\"}";
+        String responseBody = "{\"data\":{\"searchAds\":{\"ads\":[{\"id\":\"123\"},{\"id\":\"456\"}]}}}";
+
+        HttpResponse<String> mockResponse = mock(HttpResponse.class);
+        when(mockResponse.body()).thenReturn(responseBody);
+
+        doReturn(mockFilterParams).when(scraper).extractFilterParams(searchUrl, paramFeature, paramOption);
+        doReturn(mockPayload).when(scraper).getGraphQlPayloadTemplate();
+        doReturn(mockResponse).when(scraper).getStringHttpResponse(eq(requestUrl), anyString());
+
+        List<String> result = scraper.fetchAdIds(requestUrl, paramFeature, paramOption);
+
+        assertEquals(Arrays.asList("123", "456"), result);
+    }
+
+    @Test
+    void testFetchAdIds_MissingParams() throws IOException {
+        String requestUrl = "https://api.example.com/graphql";
+        String paramFeature = "feature";
+        String paramOption = "option";
+
+        Map<String, String> mockFilterParams = new HashMap<>();
+        mockFilterParams.put("feature", "123");
+
+        doReturn(mockFilterParams).when(scraper).extractFilterParams(searchUrl, paramFeature, paramOption);
+
+        IOException exception = assertThrows(IOException.class, () ->
+                scraper.fetchAdIds(requestUrl, paramFeature, paramOption));
+
+        assertEquals("Could not extract featureId or optionId from URL", exception.getMessage());
+    }
+
+    @Test
+    void testGetDetails_FilteredOut() {
+        CarDetails mockCarDetails = mock(CarDetails.class);
+        when(mockCarDetails.getEurPrice()).thenReturn(25000);
+        when(mockCarDetails.getMileage()).thenReturn(150000);
+
+        CarDetails result = mockCarDetails;
+        if ((result.getEurPrice() == null) || (result.getEurPrice() > 20000) || (result.getMileage() == null)) {
+            result = null;
+        }
+
+        assertNull(result);
+    }
+
+    @Test
+    void testGetCarDetails() throws InterruptedException, IOException {
+        String carLink = "/ro/123";
+        CarDetails mockCarDetails = createMockCarDetails(1500, 180000);
+
+        doReturn(mockCarDetails).when(scraper).getDetails(carLink);
+
+        CarDetails result = scraper.getCarDetails(carLink);
+
+        assertEquals(mockCarDetails, result);
+        verify(scraper).getDetails(carLink);
+    }
+
+    @Test
+    void testGetCarDetails_Exception() throws Exception {
+        String carLink = "/ro/123";
+
+        doThrow(new IOException("Network error")).when(scraper).getDetails(carLink);
+
+        CarDetails result = scraper.getCarDetails(carLink);
+
+        assertNull(result);
+        verify(mockLogger).error("Failed to process car ad {}: {}", carLink, "Network error");
+    }
+
+    @Test
+    void testFetchCarDetails() throws InterruptedException, ExecutionException {
+        Future<CarDetails> mockFuture1 = mock(Future.class);
+        Future<CarDetails> mockFuture2 = mock(Future.class);
+        Future<CarDetails> mockFuture3 = mock(Future.class);
+
+        CarDetails car1 = createMockCarDetails(1000, 150000);
+        CarDetails car2 = createMockCarDetails(2000, 200000);
+
+        when(mockFuture1.get()).thenReturn(car1);
+        when(mockFuture2.get()).thenReturn(car2);
+        when(mockFuture3.get()).thenReturn(null);
+
+        List<Future<CarDetails>> futures = Arrays.asList(mockFuture1, mockFuture2, mockFuture3);
+
+        List<CarDetails> result = scraper.fetchCarDetails(futures);
+
+        assertEquals(2, result.size());
+        assertTrue(result.contains(car1));
+        assertTrue(result.contains(car2));
+    }
+
+    @Test
+    void testFetchCarDetails_ExecutionException() throws InterruptedException, ExecutionException {
+        Future<CarDetails> mockFuture = mock(Future.class);
+        when(mockFuture.get()).thenThrow(new ExecutionException("Test error", new RuntimeException()));
+
+        List<Future<CarDetails>> futures = Arrays.asList(mockFuture);
+
+        List<CarDetails> result = scraper.fetchCarDetails(futures);
+
+        assertTrue(result.isEmpty());
+        verify(mockLogger).error("Error fetching car details: {}", "Test error");
+    }
+
+    @Test
+    void testExtractFilterParams() throws IOException {
+        String testUrl = "https://example.com/search?o_123_456_789_101=654&other=param";
+
+        Map<String, String> result = scraper.extractFilterParams(testUrl, "feature", "option");
+
+        assertEquals("456", result.get("feature"));
+        assertEquals("654", result.get("option"));
+    }
+
+    @Test
+    void testParseUrlElements() throws Exception {
+        String testUrl = "https://999.md/search?o_123_456_789_101=654";
+        Map<String, String> params = scraper.parseUrlElements(testUrl, "feature", "option");
+
+        assertEquals("456", params.get("feature"));
+        assertEquals("654", params.get("option"));
+    }
+
+    @Test
+    void testGetStringHttpResponse() throws IOException, InterruptedException {
+        String url = "https://api.example.com/graphql";
+        String payload = "{\"query\": \"test\"}";
+
+        HttpResponse<String> mockResponse = mock(HttpResponse.class);
+        when(mockResponse.statusCode()).thenReturn(200);
+        when(mockResponse.body()).thenReturn("{\"data\": {}}");
+
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockResponse);
+
+        HttpResponse<String> result = scraper.getStringHttpResponse(url, payload);
+
+        assertEquals(mockResponse, result);
+        verify(mockHttpClient).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    }
+
+    @Test
+    void testGetStringHttpResponse_HttpError() throws IOException, InterruptedException {
+        String url = "https://api.example.com/graphql";
+        String payload = "{\"query\": \"test\"}";
+
+        HttpResponse<String> mockResponse = mock(HttpResponse.class);
+        when(mockResponse.statusCode()).thenReturn(500);
+        when(mockResponse.body()).thenReturn("Internal Server Error");
+
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockResponse);
+
+        IOException exception = assertThrows(IOException.class, () ->
+                scraper.getStringHttpResponse(url, payload));
+
+        assertEquals("HTTP error: 500 - Internal Server Error", exception.getMessage());
+    }
+
+    @Test
+    void testPrintResults() {
+        List<CarDetails> cars = Arrays.asList(
+                createMockCarDetails(1000, 150000),
+                createMockCarDetails(2000, 200000),
+                createMockCarDetails(1500, 250000)
+        );
+
+        java.io.ByteArrayOutputStream outContent = new java.io.ByteArrayOutputStream();
+        System.setOut(new java.io.PrintStream(outContent));
+
+        scraper.printResults(cars);
+
+        String output = outContent.toString();
+        assertTrue(output.contains("Max price: 2000"));
+        assertTrue(output.contains("Min price: 1000"));
+        assertTrue(output.contains("Average price: 1500.00"));
+
+        System.setOut(System.out);
+    }
+
+    @Test
+    void testCheckFinalProducts_EmptyList() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                scraper.checkFinalProducts(new ArrayList<>()));
+
+        assertEquals("Product list is empty or null", exception.getMessage());
+    }
+
+    @Test
+    void testCheckFinalProducts_NullList() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                scraper.checkFinalProducts(null));
+
+        assertEquals("Product list is empty or null", exception.getMessage());
+    }
+
+    @Test
+    void testGetAvgPrice() {
+        List<CarDetails> cars = Arrays.asList(
+                createMockCarDetails(1000, 250000),
+                createMockCarDetails(2000, 300000),
+                createMockCarDetails(1500, 350000),
+                createMockCarDetails(3000, 150000)
+        );
+
+        double avgPrice = scraper.getAvgPrice(cars);
+
+        assertEquals(1500.0, avgPrice, 0.01);
+    }
+
+    @Test
+    void testGetAvgPrice_NoValidCars() {
+        List<CarDetails> cars = Arrays.asList(
+                createMockCarDetails(1000, 150000),
+                createMockCarDetails(2000, 450000)
+        );
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                scraper.getAvgPrice(cars));
+
+        assertEquals("Cannot compute average - list is empty", exception.getMessage());
+    }
+
+    @Test
+    void testGetMinEntry() {
+        List<CarDetails> cars = Arrays.asList(
+                createMockCarDetails(2000, 200000),
+                createMockCarDetails(1000, 150000),
+                createMockCarDetails(1500, 300000)
+        );
+
+        CarDetails minEntry = scraper.getMinEntry(cars);
+
+        assertEquals(1000, minEntry.getEurPrice().intValue());
+    }
+
+    @Test
+    void testGetMaxEntry() {
+        List<CarDetails> cars = Arrays.asList(
+                createMockCarDetails(2000, 200000),
+                createMockCarDetails(1000, 150000),
+                createMockCarDetails(1500, 300000)
+        );
+
+        CarDetails maxEntry = scraper.getMaxEntry(cars);
+
+        assertEquals(2000, maxEntry.getEurPrice().intValue());
+    }
+
+    @Test
+    void testSaveResults_EmptyList() throws SQLException {
+        scraper.saveResults(new ArrayList<>());
+
+        verify(mockLogger).info("No products found.");
+        verifyNoInteractions(mockDbManager);
+    }
+
+    private CarDetails createMockCarDetails(Integer price, Integer mileage) {
+        CarDetails carDetails = mock(CarDetails.class);
+        when(carDetails.getEurPrice()).thenReturn(price);
+        when(carDetails.getMileage()).thenReturn(mileage);
+        when(carDetails.getAdType()).thenReturn("Vând");
+        when(carDetails.getLink()).thenReturn("https://999.md/car/" + price);
+        return carDetails;
+    }
+}

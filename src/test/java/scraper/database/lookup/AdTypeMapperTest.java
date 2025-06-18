@@ -1,9 +1,9 @@
-package scraper.database.lookupEntityMappers;
+package scraper.database.lookup;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import scraper.database.DatabaseManager;
-import scraper.model.lookupEntity.AdType;
+import scraper.model.lookup.AdType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

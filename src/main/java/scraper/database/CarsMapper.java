@@ -3,7 +3,7 @@ package scraper.database;
 import scraper.database.registry.LookupEntityRegistry;
 import scraper.database.registry.ParticularitiesRegistry;
 import scraper.model.*;
-import scraper.model.lookupEntity.AdType;
+import scraper.model.lookup.AdType;
 
 import java.sql.*;
 import java.util.List;

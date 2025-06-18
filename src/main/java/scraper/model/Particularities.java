@@ -18,6 +18,9 @@ public class Particularities {
     private Integer tractionType;
     private Integer color;
 
+    public Particularities() {
+    }
+
     public Particularities(Builder builder) {
         this.id = builder.id;
         this.author = builder.author;

@@ -1,7 +1,7 @@
-package scraper.database.lookupEntityMappers;
+package scraper.database.lookup;
 
 import scraper.database.DatabaseManager;
-import scraper.model.lookupEntity.WheelSide;
+import scraper.model.lookup.WheelSide;
 
 public class WheelSideMapper extends LookupEntityMapper<WheelSide> {
     public WheelSideMapper(DatabaseManager dbManager) {

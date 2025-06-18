@@ -1,6 +1,6 @@
 package scraper.model;
 
-import scraper.model.lookupEntity.LookupEntity;
+import scraper.model.lookup.LookupEntity;
 
 public class Cars {
     private Integer id;

@@ -1,7 +1,7 @@
-package scraper.database.lookupEntityMappers;
+package scraper.database.lookup;
 
 import scraper.database.DatabaseManager;
-import scraper.model.lookupEntity.Color;
+import scraper.model.lookup.Color;
 
 public class ColorMapper extends LookupEntityMapper<Color> {
     public ColorMapper(DatabaseManager dbManager) {

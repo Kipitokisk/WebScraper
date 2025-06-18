@@ -1,7 +1,7 @@
-package scraper.database.lookupEntityMappers;
+package scraper.database.lookup;
 
 import scraper.database.DatabaseManager;
-import scraper.model.lookupEntity.AdType;
+import scraper.model.lookup.AdType;
 
 public class AdTypeMapper extends LookupEntityMapper<AdType> {
     public AdTypeMapper(DatabaseManager dbManager) {

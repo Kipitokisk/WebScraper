@@ -1,7 +1,7 @@
-package scraper.database.lookupEntityMappers;
+package scraper.database.lookup;
 
 import scraper.database.DatabaseManager;
-import scraper.model.lookupEntity.LookupEntity;
+import scraper.model.lookup.LookupEntity;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

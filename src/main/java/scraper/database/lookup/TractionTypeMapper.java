@@ -1,7 +1,7 @@
-package scraper.database.lookupEntityMappers;
+package scraper.database.lookup;
 
 import scraper.database.DatabaseManager;
-import scraper.model.lookupEntity.TractionType;
+import scraper.model.lookup.TractionType;
 
 public class TractionTypeMapper extends LookupEntityMapper<TractionType> {
     public TractionTypeMapper(DatabaseManager dbManager) {
