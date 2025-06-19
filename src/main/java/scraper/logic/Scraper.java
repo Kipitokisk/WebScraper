@@ -31,7 +31,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Scraper {
-    private final Dotenv dotenv = Dotenv.load();
+    private final Dotenv dotenv;
     private final Logger logger;
     private final String baseUrl;
     private final String searchUrl;
@@ -49,6 +49,7 @@ public class Scraper {
         this.logger = logger;
         this.client = client;
         this.dbManager = dbManager;
+        this.dotenv = Dotenv.load();
     }
 
     public void scrape() throws IOException, InterruptedException, SQLException {

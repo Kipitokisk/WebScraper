@@ -3,8 +3,9 @@ WORKDIR /app
 
 COPY pom.xml .
 COPY src ./src
+COPY src/main/resources/.env ./.env
 
-RUN mvn clean package -DskipTests
+RUN mvn clean package
 
 FROM openjdk:17-jdk-slim AS final
 WORKDIR /app

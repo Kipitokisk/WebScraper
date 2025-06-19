@@ -25,8 +25,7 @@ services:
       DATASOURCE_PASSWORD: pass
     ports:
       - "8080:8080"
-    volumes:
-      - ./.env:/app/.env
+    env_file: src/main/resources/.env
 
 volumes:
   http_pgdata:
