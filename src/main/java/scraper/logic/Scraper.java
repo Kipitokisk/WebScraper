@@ -161,7 +161,7 @@ public class Scraper {
         Set<String> existingAdIds = getExistingAdIds();
         for (JsonNode ad : adsNode) {
             String adId = ad.path("id").asText();
-            if (existingAdIds.contains(baseUrl + adId)) {
+            if (existingAdIds.contains(baseUrl + "/ro/" + adId)) {
                 continue;
             }
             adIds.add(adId);
