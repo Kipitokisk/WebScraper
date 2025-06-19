@@ -25,7 +25,6 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,19 +36,20 @@ public class Scraper {
     private final String searchUrl;
     private final HttpClient client;
     private final DatabaseManager dbManager;
+    private final ExecutorService executor;
     private static final int MIN_MILEAGE = 200000;
     private static final int MAX_MILEAGE = 400000;
     private static final int MAX_EUR_PRICE = 20000;
     private static final long DELAY = 1000L;
-    private static final int MAX_THREADS = 25;
 
-    public Scraper(String baseUrl, String searchUrl, DatabaseManager dbManager, Logger logger, HttpClient client) {
+    public Scraper(String baseUrl, String searchUrl, DatabaseManager dbManager, Logger logger, HttpClient client, ExecutorService executorService) {
         this.baseUrl = baseUrl;
         this.searchUrl = searchUrl;
         this.logger = logger;
         this.client = client;
         this.dbManager = dbManager;
         this.dotenv = Dotenv.load();
+        this.executor = executorService;
     }
 
     public void scrape() throws IOException, InterruptedException, SQLException {
@@ -64,25 +64,12 @@ public class Scraper {
 
         List<String> adIds = fetchAdIds(url, paramFeature, paramOption);
 
-        int threads = getNrOfThreads();
-
-        ExecutorService executor = Executors.newFixedThreadPool(threads);
         logger.info("Fetched {} ad IDs", adIds.size());
 
         List<Future<CarDetails>> futures = extractEachCarDetail(adIds, executor);
         List<CarDetails> carDetails = fetchCarDetails(futures);
 
-        executor.shutdown();
-
         return carDetails;
-    }
-
-    int getNrOfThreads() {
-        int threadCount = Integer.parseInt(dotenv.get("THREAD_COUNT"));
-        if (threadCount != 0) {
-            return Math.min(threadCount, MAX_THREADS);
-        }
-        return MAX_THREADS;
     }
 
     List<Future<CarDetails>> extractEachCarDetail(List<String> adIds, ExecutorService executor) {
@@ -171,11 +158,19 @@ public class Scraper {
 
     List<String> getAdIds(JsonNode adsNode) {
         List<String> adIds = new ArrayList<>();
+        Set<String> existingAdIds = getExistingAdIds();
         for (JsonNode ad : adsNode) {
             String adId = ad.path("id").asText();
+            if (existingAdIds.contains(baseUrl + adId)) {
+                continue;
+            }
             adIds.add(adId);
         }
         return adIds;
+    }
+
+    Set<String> getExistingAdIds() {
+        return CarsMapper.extractLinks(dbManager);
     }
 
     JsonNode extractAdsNode(HttpResponse<String> response) throws IOException {

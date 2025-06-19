@@ -6,7 +6,9 @@ import scraper.model.*;
 import scraper.model.lookup.AdType;
 
 import java.sql.*;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static scraper.database.DatabaseUtils.*;
 
@@ -16,6 +18,8 @@ public class CarsMapper implements EntityMapper<Cars> {
             link, region, mileage, price_eur, update_date, ad_type_id, particularities_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
         """;
+
+    private static final String SELECT_LINKS_SQL= "SELECT link FROM cars";
 
     private final DatabaseManager dbManager;
     private final LookupEntityRegistry lookupRegistry;
@@ -70,5 +74,23 @@ public class CarsMapper implements EntityMapper<Cars> {
             }
             stmt.executeBatch();
         }
+    }
+
+    public static Set<String> extractLinks(DatabaseManager databaseManager) {
+        Set<String> links = new HashSet<>();
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement stmt = databaseManager.prepareStatement(conn, SELECT_LINKS_SQL);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                String link = rs.getString("link");
+                if (link != null) {
+                    links.add(link);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error extracting car links", e);
+        }
+        return links;
     }
 }

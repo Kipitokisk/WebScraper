@@ -5,6 +5,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
+import scraper.database.CarsMapper;
 import scraper.database.DatabaseManager;
 import scraper.model.CarDetails;
 
@@ -15,6 +16,7 @@ import java.net.http.HttpResponse;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,27 +28,16 @@ class ScraperTest {
     private DatabaseManager mockDbManager;
     private Logger mockLogger;
     private HttpClient mockHttpClient;
+    private ExecutorService executorService;
 
     @BeforeEach
     void setUp() {
         mockDbManager = mock(DatabaseManager.class);
         mockLogger = mock(Logger.class);
         mockHttpClient = mock(HttpClient.class);
+        executorService = mock(ExecutorService.class);
         scraper = spy(new Scraper("http://999.md", "https://999.md/search?o_123_456_789_101=654",
-                mockDbManager, mockLogger, mockHttpClient));
-    }
-
-    @Test
-    void testGetNrOfThreads_WithValidThreadCount() {
-        int result = scraper.getNrOfThreads();
-        assertTrue(result > 0);
-        assertTrue(result <= 25);
-    }
-
-    @Test
-    void testGetNrOfThreads_ReturnsMaxWhenZero() {
-        int result = scraper.getNrOfThreads();
-        assertTrue(result <= 25);
+                mockDbManager, mockLogger, mockHttpClient, executorService));
     }
 
     @Test
@@ -153,6 +144,7 @@ class ScraperTest {
         when(mockId1.asText()).thenReturn("12345");
         when(mockId2.asText()).thenReturn("67890");
 
+        doReturn(Collections.emptySet()).when(scraper).getExistingAdIds();
         List<String> result = scraper.getAdIds(mockAdsNode);
 
         assertEquals(2, result.size());
@@ -165,6 +157,7 @@ class ScraperTest {
         JsonNode mockAdsNode = mock(JsonNode.class);
         when(mockAdsNode.iterator()).thenReturn(Collections.emptyIterator());
 
+        doReturn(Collections.emptySet()).when(scraper).getExistingAdIds();
         List<String> result = scraper.getAdIds(mockAdsNode);
 
         assertEquals(0, result.size());
@@ -451,6 +444,7 @@ class ScraperTest {
 
         doReturn(mockFilterParams).when(scraper)
                 .extractFilterParams("https://999.md/search?o_123_456_789_101=654", paramFeature, paramOption);
+        doReturn(Collections.emptySet()).when(scraper).getExistingAdIds();
         doReturn(mockPayload).when(scraper).getGraphQlPayloadTemplate();
         doReturn(mockResponse).when(scraper).getStringHttpResponse(eq(requestUrl), anyString());
 

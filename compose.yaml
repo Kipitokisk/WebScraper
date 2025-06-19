@@ -16,6 +16,7 @@ services:
   scraper-app:
     build:
       context: .
+    restart: unless-stopped
     container_name: http-webscraper-app
     depends_on:
       - db
