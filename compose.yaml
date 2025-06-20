@@ -12,6 +12,11 @@ services:
     volumes:
       - http_pgdata:/var/lib/postgresql/data
       - ./src/main/resources/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   scraper-app:
     build:
@@ -19,7 +24,8 @@ services:
     restart: unless-stopped
     container_name: http-webscraper-app
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       DATASOURCE_URL: jdbc:postgresql://db:5432/http_scraper_db
       DATASOURCE_USERNAME: postgres
