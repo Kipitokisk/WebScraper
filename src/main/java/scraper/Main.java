@@ -41,17 +41,23 @@ public class Main {
                 logger.info("Scraping completed successfully");
                 logger.info("Time in seconds: {}", endTime / 1_000_000_000L);
 
-                try {
-                    Thread.sleep(rescheduleTime);
-                } catch (InterruptedException ie) {
-                    logger.warn("Scraper was interrupted during sleep", ie);
-                    executor.shutdown();
-                    break;
-                }
+                if (pauseForScheduling(logger, executor)) break;
             }
         } catch (Exception e) {
             logger.error("Error running scraper", e);
         }
+    }
+
+    static boolean pauseForScheduling(Logger logger, ExecutorService executor) {
+        try {
+            Thread.sleep(rescheduleTime);
+        } catch (InterruptedException ie) {
+            logger.warn("Scraper was interrupted during sleep", ie);
+            executor.shutdown();
+            Thread.currentThread().interrupt();
+            return true;
+        }
+        return false;
     }
 
     static int getNrOfThreads() {
