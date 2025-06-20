@@ -13,6 +13,7 @@ import java.util.concurrent.Executors;
 public class Main {
     static Dotenv dotenv = Dotenv.load();
     static int maxThreads = 25;
+    static long rescheduleTime = 2 * 60 * 60 * 1000L;
 
     public static void main(String[] args) {
         Logger logger = LoggerFactory.getLogger(Main.class);
@@ -38,8 +39,15 @@ public class Main {
                 scraper.scrape();
                 long endTime = System.nanoTime() - startTime;
                 logger.info("Scraping completed successfully");
-                logger.info("Time in seconds: {}", endTime/1000000000L);
-                Thread.sleep(2 * 60 * 60 * 1000);
+                logger.info("Time in seconds: {}", endTime / 1_000_000_000L);
+
+                try {
+                    Thread.sleep(rescheduleTime);
+                } catch (InterruptedException ie) {
+                    logger.warn("Scraper was interrupted during sleep", ie);
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
         } catch (Exception e) {
             logger.error("Error running scraper", e);
