@@ -33,7 +33,7 @@ public class Main {
             Scraper scraper = new Scraper(baseUrl, searchUrl, databaseManager, scraperLogger, client, executor);
 
 
-            while (true) {
+            do {
                 logger.info("Started scheduled scraping.");
                 long startTime = System.nanoTime();
                 scraper.scrape();
@@ -41,8 +41,7 @@ public class Main {
                 logger.info("Scraping completed successfully");
                 logger.info("Time in seconds: {}", endTime / 1_000_000_000L);
 
-                if (pauseForScheduling(logger, executor)) break;
-            }
+            } while (!pauseForScheduling(logger, executor));
         } catch (Exception e) {
             logger.error("Error running scraper", e);
         }
