@@ -45,7 +45,7 @@ public class Main {
                     Thread.sleep(rescheduleTime);
                 } catch (InterruptedException ie) {
                     logger.warn("Scraper was interrupted during sleep", ie);
-                    Thread.currentThread().interrupt();
+                    executor.shutdown();
                     break;
                 }
             }
