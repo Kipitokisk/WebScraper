@@ -26,37 +26,39 @@ public class Main {
         HttpClient client = HttpClient.newHttpClient();
         Logger scraperLogger = LoggerFactory.getLogger(Scraper.class);
 
-        try {
-            DatabaseManager databaseManager = new DatabaseManager(dbUrl, dbUser, dbPass);
-            int threads = getNrOfThreads();
+        DatabaseManager databaseManager = new DatabaseManager(dbUrl, dbUser, dbPass);
+        int threads = getNrOfThreads();
+        do {
+            logger.info("Started scheduled scraping.");
             ExecutorService executor = Executors.newFixedThreadPool(threads);
-            Scraper scraper = new Scraper(baseUrl, searchUrl, databaseManager, scraperLogger, client, executor);
 
+            try {
+                Scraper scraper = new Scraper(baseUrl, searchUrl, databaseManager, scraperLogger, client, executor);
 
-            do {
-                logger.info("Started scheduled scraping.");
                 long startTime = System.nanoTime();
                 scraper.scrape();
                 long endTime = System.nanoTime() - startTime;
                 logger.info("Scraping completed successfully");
                 logger.info("Time in seconds: {}", endTime / 1_000_000_000L);
-
-            } while (!pauseForScheduling(logger, executor));
-        } catch (Exception e) {
-            logger.error("Error running scraper", e);
-        }
+            } catch (Exception e) {
+                logger.error("Error running scraper", e);
+            }
+            finally {
+                executor.shutdown();
+            }
+        } while (!pauseForScheduling(logger));
     }
 
-    static boolean pauseForScheduling(Logger logger, ExecutorService executor) {
+    static boolean pauseForScheduling(Logger logger) {
         try {
+            logger.info("Pausing before next scraping cycle");
             Thread.sleep(rescheduleTime);
+            return false;
         } catch (InterruptedException ie) {
             logger.warn("Scraper was interrupted during sleep", ie);
-            executor.shutdown();
             Thread.currentThread().interrupt();
             return true;
         }
-        return false;
     }
 
     static int getNrOfThreads() {
