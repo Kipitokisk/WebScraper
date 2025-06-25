@@ -75,7 +75,7 @@ public class Scraper {
     List<Future<CarDetails>> extractEachCarDetail(List<String> adIds, ExecutorService executor) {
         List<Future<CarDetails>> futures = new ArrayList<>();
         for (String adId : adIds) {
-            String carLink = "/ro/" + adId;
+            String carLink = adId;
             futures.add(executor.submit(() -> getCarDetails(carLink)));
         }
         return futures;
@@ -95,7 +95,7 @@ public class Scraper {
     }
 
     CarDetails getDetails(String carLink) throws IOException {
-        Document doc = Jsoup.connect(baseUrl + carLink).get();
+        Document doc = Jsoup.connect(carLink).get();
         String carBrand = dotenv.get("CAR_BRAND");
         String carModel = dotenv.get("CAR_MODEL");
         CarDetails car = new CarDetails(doc, baseUrl, carLink, carBrand, carModel);
@@ -158,19 +158,13 @@ public class Scraper {
 
     List<String> getAdIds(JsonNode adsNode) {
         List<String> adIds = new ArrayList<>();
-        Set<String> existingAdIds = getExistingAdIds();
+
         for (JsonNode ad : adsNode) {
             String adId = ad.path("id").asText();
-            if (existingAdIds.contains(baseUrl + "/ro/" + adId)) {
-                continue;
-            }
-            adIds.add(adId);
+            adIds.add(baseUrl + "/ro/" + adId);
         }
-        return adIds;
-    }
 
-    Set<String> getExistingAdIds() {
-        return CarsMapper.extractLinks(dbManager);
+        return CarsMapper.extractLinks(dbManager, adIds);
     }
 
     JsonNode extractAdsNode(HttpResponse<String> response) throws IOException {
@@ -254,16 +248,10 @@ public class Scraper {
         throw new IllegalArgumentException("Query doesn't contain params");
     }
 
-    void printResults(List<CarDetails> finalProducts) {
-        checkFinalProducts(finalProducts);
-
-        CarDetails maxEntry = getMaxEntry(finalProducts);
-        CarDetails minEntry = getMinEntry(finalProducts);
-        double avgPrice = getAvgPrice(finalProducts);
-
-        System.out.println("Max price: " + maxEntry.getEurPrice() + " (Link: " + maxEntry.getLink() + ")");
-        System.out.println("Min price: " + minEntry.getEurPrice() + " (Link: " + minEntry.getLink() + ")");
-        System.out.printf(Locale.US, "Average price: %.2f%n", avgPrice);
+    void printResults() throws SQLException {
+        System.out.println("Max price: " + getMaxEntry());
+        System.out.println("Min price: " + getMinEntry());
+        System.out.printf(Locale.US, "Average price: %.2f%n", getAvgPrice());
     }
 
     void checkFinalProducts(List<CarDetails> finalProducts) {
@@ -272,38 +260,26 @@ public class Scraper {
         }
     }
 
-    double getAvgPrice(List<CarDetails> finalProducts) {
-        return finalProducts.stream()
-                .filter(c -> c.getMileage() != null && c.getEurPrice() != null && c.getMileage() > MIN_MILEAGE
-                        && c.getMileage() < MAX_MILEAGE && c.getAdType().equals("Vând"))
-                .mapToInt(CarDetails::getEurPrice)
-                .average()
-                .orElseThrow(() -> new RuntimeException("Cannot compute average - list is empty"));
+    double getAvgPrice() throws SQLException {
+        return CarsMapper.getAveragePrice(MIN_MILEAGE, MAX_MILEAGE, dbManager);
     }
 
-    CarDetails getMinEntry(List<CarDetails> finalProducts) {
-        return finalProducts.stream()
-                .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
-                .min(Comparator.comparingInt(CarDetails::getEurPrice))
-                .orElseThrow(() -> new RuntimeException("There is no min price"));
+    int getMinEntry() throws SQLException {
+        return CarsMapper.getMinPrice(dbManager);
     }
 
-    CarDetails getMaxEntry(List<CarDetails> finalProducts) {
-        return finalProducts.stream()
-                .filter(c -> c.getEurPrice() != null && c.getAdType().equals("Vând"))
-                .max(Comparator.comparingInt(CarDetails::getEurPrice))
-                .orElseThrow(() -> new RuntimeException("There is no max price"));
+    int getMaxEntry() throws SQLException {
+        return CarsMapper.getMaxPrice(dbManager);
     }
 
     void saveResults(List<CarDetails> finalProducts) throws SQLException {
         if (finalProducts.isEmpty()) {
             logger.info("No products found.");
-            return;
         }
         LookupEntityRegistry lookupEntityRegistry = saveLookupEntities(finalProducts);
         ParticularitiesRegistry particularitiesRegistry = saveParticularities(finalProducts, lookupEntityRegistry);
         saveCars(finalProducts, lookupEntityRegistry, particularitiesRegistry);
-        printResults(finalProducts);
+        printResults();
     }
 
     void saveCars(List<CarDetails> finalProducts, LookupEntityRegistry lookupEntityRegistry, ParticularitiesRegistry particularitiesRegistry) throws SQLException {

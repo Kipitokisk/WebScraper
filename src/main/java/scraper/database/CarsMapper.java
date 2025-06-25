@@ -6,6 +6,7 @@ import scraper.model.*;
 import scraper.model.lookup.AdType;
 
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -19,7 +20,8 @@ public class CarsMapper implements EntityMapper<Cars> {
         ) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (link) DO NOTHING
         """;
 
-    private static final String SELECT_LINKS_SQL= "SELECT link FROM cars";
+    private static final String INSERT_TEMP_LINKS_SQL = "INSERT INTO temp_links (link) VALUES(?)";
+    private static final String SELECT_NEW_LINKS_SQL = "SELECT link FROM temp_links WHERE link NOT IN (SELECT link FROM cars)";
 
     private final DatabaseManager dbManager;
     private final LookupEntityRegistry lookupRegistry;
@@ -76,21 +78,106 @@ public class CarsMapper implements EntityMapper<Cars> {
         }
     }
 
-    public static Set<String> extractLinks(DatabaseManager databaseManager) {
-        Set<String> links = new HashSet<>();
-        try (Connection conn = databaseManager.getConnection();
-             PreparedStatement stmt = databaseManager.prepareStatement(conn, SELECT_LINKS_SQL);
-             ResultSet rs = stmt.executeQuery()) {
+    public static List<String> extractLinks(DatabaseManager databaseManager, List<String> allLinks) {
+        List<String> newLinks = new ArrayList<>();
+        try (Connection conn = databaseManager.getConnection()) {
 
-            while (rs.next()) {
-                String link = rs.getString("link");
-                if (link != null) {
-                    links.add(link);
+            try (Statement statement = conn.createStatement()){
+                statement.execute("CREATE TEMP TABLE temp_links (link TEXT) ON COMMIT PRESERVE ROWS");
+            }
+
+            try (PreparedStatement stmt = databaseManager.prepareStatement(conn, INSERT_TEMP_LINKS_SQL)){
+                for (String link : allLinks) {
+                    stmt.setString(1, link);
+                    stmt.addBatch();
+                }
+                stmt.executeBatch();
+            }
+
+            try (PreparedStatement selectStmt = conn.prepareStatement(SELECT_NEW_LINKS_SQL);
+                 ResultSet rs = selectStmt.executeQuery()) {
+
+                while (rs.next()) {
+                    newLinks.add(rs.getString("link"));
                 }
             }
+
+            return newLinks;
         } catch (SQLException e) {
             throw new RuntimeException("Error extracting car links", e);
         }
-        return links;
+    }
+
+    public static double getAveragePrice(int minMileage, int maxMileage, DatabaseManager dbManager) throws SQLException {
+        String sql = """
+        SELECT AVG(price_eur)
+        FROM cars
+        WHERE ad_type_id = (SELECT id FROM ad_type WHERE name = 'Vând')
+          AND price_eur IS NOT NULL
+          AND mileage IS NOT NULL
+          AND mileage > ?
+          AND mileage < ?
+    """;
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = dbManager.prepareStatement(conn, sql)) {
+
+            stmt.setInt(1, minMileage);
+            stmt.setInt(2, maxMileage);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    double avg = rs.getDouble(1);
+                    if (rs.wasNull()) {
+                        throw new RuntimeException("Cannot compute average - DB returned null");
+                    }
+                    return avg;
+                } else {
+                    throw new RuntimeException("Cannot compute average - no result");
+                }
+            }
+        }
+    }
+
+    public static int getMinPrice(DatabaseManager dbManager) throws SQLException {
+        String sql = """
+        SELECT MIN(price_eur)
+        FROM cars
+        WHERE ad_type_id = (SELECT id FROM ad_type WHERE name = 'Vând')
+        AND price_eur IS NOT NULL
+    """;
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = dbManager.prepareStatement(conn, sql)) {
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                } else {
+                    throw new RuntimeException("No min price found in DB");
+                }
+            }
+        }
+    }
+
+    public static int getMaxPrice(DatabaseManager dbManager) throws SQLException {
+        String sql = """
+        SELECT MAX(price_eur)
+        FROM cars
+        WHERE ad_type_id = (SELECT id FROM ad_type WHERE name = 'Vând')
+        AND price_eur IS NOT NULL
+    """;
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = dbManager.prepareStatement(conn, sql)) {
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                } else {
+                    throw new RuntimeException("No max price found in DB");
+                }
+            }
+        }
     }
 }

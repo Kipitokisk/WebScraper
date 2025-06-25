@@ -29,7 +29,7 @@ public class CarDetails {
     private final String color;
 
     public CarDetails(Document doc, String baseUrl, String carLink, String carBrand, String carModel) {
-        this.link = baseUrl + carLink;
+        this.link = carLink;
 
         String title = extractTitle(doc);
         validateTitle(title, carBrand, carModel);
